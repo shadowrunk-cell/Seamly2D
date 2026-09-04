@@ -40,3 +40,31 @@ The system SHALL import patterns from common CAD formats (DXF, AAMA, ASTM).
   - All geometry intact
   - Measurements preserved
   - Grading information (if present) imported
+
+### Requirement: SM2D Native Pattern Format
+The system SHALL write and read patterns in the modern `.sm2d` format in addition to the
+legacy `.val` format.
+
+#### Scenario: Save a pattern as .sm2d
+- **GIVEN** a user has a completed pattern
+- **WHEN** the user saves the pattern
+- **THEN** the system writes a `.sm2d` file
+- **AND** the file opens correctly in Seamly2D (>= 2023)
+
+#### Scenario: Convert legacy .val to .sm2d
+- **GIVEN** a user has a legacy `.val` template
+- **WHEN** the user converts it to the canonical format
+- **THEN** the system converts the file via the Seamly2D converter
+- **AND** preserves all measurements references, increments, and geometry
+
+### Requirement: Measurement File Interchange (.vit)
+The system SHALL generate and apply a `.vit` measurement file for a selected pattern, so
+changing measurement values rebuilds the pattern geometry.
+
+#### Scenario: Apply measurements to a template
+- **GIVEN** a user provides measurements for a chosen template
+- **WHEN** the system generates the pattern
+- **THEN** the system produces a `.vit` file with the user's values
+- **AND** substitutes the `.vit` path into the `.val`/`.sm2d` template
+- **AND** the geometry re-computes accordingly in Seamly2D
+

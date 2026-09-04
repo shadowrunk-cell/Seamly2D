@@ -20,9 +20,12 @@
 3. После ревью — мержим в `main`
 
 ## Priority Order
-1. **Phase 1**: Fork and Setup (создание структуры, CI/CD)
+1. **Phase 1**: Fork and Setup (создание структуры, CI/CD) — готово
 2. **Phase 2**: Export Fix (DXF-ASTM, OBJ, FBX)
-3. **Phase 3**: AI Service (FastAPI + LLM)
-4. **Phase 4**: UI Modernization
-5. **Phase 5**: Monetization Layer
-6. **Phase 6**: Testing and Release
+3. **Phase 3**: AI Service (FastAPI + LLM) — базово готово
+4. **Phase 3g**: Seamly2D Container (headless-рендер выкроек в PDF/DXF/SVG/PNG)
+5. **Phase 3h**: Async Factory (Celery + Redis, статус задач)
+6. **Phase 7**: Data/Multi-user (PostgreSQL + S3, метаданные шаблонов)
+7. **Phase 4**: UI Modernization
+8. **Phase 5**: Monetization Layer
+9. **Phase 6**: Testing and Release
