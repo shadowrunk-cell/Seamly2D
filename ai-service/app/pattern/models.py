@@ -26,7 +26,7 @@ class MeasurementsRequest(BaseModel):
 class PatternRequest(BaseModel):
     """Запрос на генерацию паттерна."""
 
-    template: Literal["bodice", "skirt", "trousers"]
+    template: str
     measurements: list[MeasurementInput] = Field(default_factory=list)
     size: Optional[str] = None
     adjustments: dict[str, float] = Field(

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Виртуальное ателье — SeamlyAI</title>
+<title>Виртуальное ателье</title>
 <style>
   :root {
     --bg: #f5f6f8;
@@ -105,13 +105,67 @@
     background: var(--accent); color: #fff; border: none; border-radius: 10px;
     padding: 11px; font-size: 14px; cursor: pointer; width: 100%;
   }
+
+  /* === Каталог изделий === */
+  .modal-backdrop {
+    position: fixed; inset: 0; background: rgba(0,0,0,.45);
+    display: none; align-items: center; justify-content: center; z-index: 50;
+  }
+  .modal-backdrop.open { display: flex; }
+  .modal {
+    background: var(--panel); border-radius: 14px; width: 760px; max-width: 94vw;
+    max-height: 88vh; display: flex; flex-direction: column; overflow: hidden;
+  }
+  .modal-head {
+    padding: 16px 20px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 10px;
+  }
+  .modal-head h2 { margin: 0; font-size: 18px; flex: 1; }
+  .modal-head button {
+    background: var(--panel); color: var(--muted); border: 1px solid var(--border);
+    border-radius: 8px; padding: 6px 10px; cursor: pointer; font-size: 13px;
+  }
+  .filters { display: flex; gap: 8px; padding: 12px 20px; flex-wrap: wrap; border-bottom: 1px solid var(--border); }
+  .filters .grp { display: flex; align-items: center; gap: 6px; }
+  .filters .grp-label { font-size: 12px; color: var(--muted); }
+  .chip {
+    padding: 6px 12px; border-radius: 999px; border: 1px solid var(--border);
+    background: var(--panel); color: var(--muted); cursor: pointer; font-size: 13px;
+  }
+  .chip.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .catalog-grid {
+    padding: 16px 20px; overflow-y: auto; display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 14px;
+  }
+  .card {
+    border: 1px solid var(--border); border-radius: 12px; overflow: hidden;
+    cursor: pointer; background: var(--bg); display: flex; flex-direction: column;
+    transition: border-color .12s, transform .12s;
+  }
+  .card:hover { border-color: var(--accent); transform: translateY(-2px); }
+  .card.sel { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(79,70,229,.25); }
+  .card .thumb {
+    height: 130px; display: flex; align-items: center; justify-content: center;
+    background: var(--panel); overflow: hidden;
+  }
+  .card .thumb img { width: 100%; height: 100%; object-fit: cover; }
+  .card .thumb .stub {
+    color: var(--muted); font-size: 34px; display: flex; align-items: center; justify-content: center; width: 100%; height: 100%;
+  }
+  .card .cap { padding: 10px 12px; }
+  .card .cap b { font-size: 14px; display: block; }
+  .card .cap .sub { font-size: 12px; color: var(--muted); margin-top: 3px; line-height: 1.4; }
+  .card .cap .tags { font-size: 11px; color: var(--muted); margin-top: 6px; display: flex; gap: 6px; flex-wrap: wrap; }
+  .card .cap .tag { background: var(--border); border-radius: 6px; padding: 2px 6px; }
+  .empty-hint { padding: 30px; text-align: center; color: var(--muted); }
 </style>
 </head>
 <body>
 <header>
   <div class="logo">Виртуальное ателье</div>
-  <div class="sub">AI-конструирование одежды (SeamlyAI)</div>
+  <div class="sub">AI-конструирование одежды</div>
   <div class="spacer"></div>
+  <button id="catalogBtn" title="Открыть каталог изделий">👗 Изделия</button>
   <button id="togglePanel" title="Открыть панель мерок">📏 Мерки</button>
   <span class="panel-badge">Роль:</span>
   <select id="role">
@@ -125,20 +179,20 @@
     <div id="panelBody">
       <div>
         <h3>Мерки</h3>
-        <p class="phint">Выберите изделие — покажутся только нужные ему мерки. Линии на схеме показывают, где и как мерить.</p>
+        <p class="phint">Выберите изделие в каталоге (👗) — покажутся только нужные ему мерки. Линии на схеме показывают, где и как мерить.</p>
       </div>
 
-      <div class="seg" id="garmentSeg">
-        <button data-g="skirt" class="on">Юбка</button>
-        <button data-g="bodice">Лиф</button>
-        <button data-g="trousers">Брюки</button>
+      <div style="display:flex;align-items:center;gap:8px">
+        <div id="selGarment" style="flex:1;font-weight:600;font-size:14px">Изделие не выбрано</div>
+        <button id="changeGarment" style="background:var(--panel);color:var(--muted);border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:13px;cursor:pointer">Сменить</button>
       </div>
+
       <div class="seg" id="tabSeg">
         <button data-tab="basic" class="on">Основные</button>
         <button data-tab="all">Все мерки</button>
       </div>
 
-      <div class="schema-wrap" id="schemaWrap"><svg id="schema" viewBox="0 0 210 380"></svg></div>
+      <div class="schema-wrap" id="schemaWrap"><svg id="schema" viewBox="0 0 220 380"></svg></div>
       <div class="legend" id="legend"></div>
       <div class="measure-list" id="measureList"></div>
       <p class="mnote">Заполните нужные мерки. Оставшиеся будут рассчитаны автоматически из базовых (ОГ/ОТ/ОБ/рост) или стандартного размера.</p>
@@ -154,6 +208,18 @@
 <input type="file" id="file" accept="image/*" style="display:none">
 <div id="loading" class="panel-badge" style="text-align:center;padding:6px">Генерация...</div>
 
+<!-- Каталог изделий -->
+<div class="modal-backdrop" id="catalogModal">
+  <div class="modal">
+    <div class="modal-head">
+      <h2>Каталог изделий</h2>
+      <button id="closeCatalog">Закрыть</button>
+    </div>
+    <div class="filters" id="filters"></div>
+    <div class="catalog-grid" id="catalogGrid"></div>
+  </div>
+</div>
+
 <script>
 const chat = document.getElementById('chat');
 const input = document.getElementById('input');
@@ -163,17 +229,24 @@ const schema = document.getElementById('schema');
 const legend = document.getElementById('legend');
 const measureList = document.getElementById('measureList');
 let attachedImage = null;
-let state = { garment: 'skirt', tab: 'basic' };
+let state = { garment: null, tab: 'basic' };
+let catState = { category: null, gender: null };
 
 const COLORS = ['#e11d48', '#0ea5e9', '#16a34a', '#9333ea', '#f59e0b', '#14b8a6', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4'];
 
-/* Фигура (женский силуэт спереди, viewBox 0 0 210 380, центр x=105) */
+/* Фигура человека (женский силуэт, линия-арт = схематичный кроки).
+   viewBox 0 0 220 380, центр тела x=110. Цветной пунктир поверх — линии мерок. */
 const FIGURE = `
-  <ellipse cx="105" cy="42" rx="17" ry="21" fill="#c7cdd6"/>
-  <path d="M105,66 L97,68 C92,72 90,78 89,82 C88,92 91,116 90,128 C90,150 92,162 99,168 L99,200 C99,208 91,218 85,225 C82,230 84,234 92,234 L105,235 L118,234 C126,234 128,230 125,225 C119,218 111,208 111,200 L111,168 C118,162 120,150 120,128 C119,116 122,92 121,82 C120,78 118,72 113,68 L105,66 Z" fill="#c7cdd6"/>
-  <path d="M99,234 C97,265 95,305 95,340 L95,352 L105,352 L105,340 C105,305 107,267 110,234 Z" fill="#c7cdd6"/>
-  <path d="M121,234 C123,265 125,305 125,340 L125,352 L115,352 L115,340 C115,305 113,267 110,234 Z" fill="#c7cdd6"/>
-  <circle cx="98" cy="334" r="5" fill="#c7cdd6"/><circle cx="122" cy="334" r="5" fill="#c7cdd6"/>`;
+  <g fill="none" stroke="#98a2b3" stroke-width="1.8" stroke-linecap="round">
+    <circle cx="110" cy="40" r="17"/>
+    <line x1="110" y1="57" x2="110" y2="69"/>
+    <path d="M84,84 C84,100 87,120 89,130 C90,142 94,156 101,163 C106,168 111,169 111,169 C114,200 108,220 98,228 C94,232 98,237 105,239"/>
+    <path d="M115,239 C122,237 126,232 122,228 C112,220 106,200 109,169 C109,169 114,168 119,163 C126,160 130,146 131,130 C133,120 136,100 136,84"/>
+    <path d="M85,90 C78,108 76,130 78,150 C79,162 82,168 86,170"/>
+    <path d="M135,90 C142,108 144,130 142,150 C141,162 138,168 134,170"/>
+    <path d="M104,239 C102,268 100,300 100,330 L100,350 M100,350 L92,350"/>
+    <path d="M116,239 C118,268 120,300 120,330 L120,350 M120,350 L128,350"/>
+  </g>`;
 
 /* Русские подписи мерок + позиция на схеме (если есть).
    Ключи соответствуют required_measurements шаблонов из API. */
@@ -212,7 +285,8 @@ const META = {
 
 const GARMENT_NAMES = { skirt: 'юбку', bodice: 'лиф', trousers: 'брюки' };
 
-/* Мерки шаблонов, загруженные с сервера */
+/* Каталог изделий, загруженный с сервера */
+let catalog = { categories: [], genders: [], templates: [] };
 let templatesData = {};
 let currentMeasureKeys = [];
 
@@ -220,12 +294,26 @@ async function loadTemplates() {
   try {
     const resp = await fetch('/api/patterns/templates');
     const data = await resp.json();
+    catalog = data;
     templatesData = {};
     data.templates.forEach(t => { templatesData[t.key] = t.measurements_needed; });
-    render();
+    if (state.garment && templatesData[state.garment]) {
+      render();
+    } else {
+      state.garment = data.templates[0] ? data.templates[0].key : null;
+      render();
+    }
   } catch (e) {
     addError('Не удалось загрузить шаблоны мерок: ' + e.message);
   }
+}
+
+function garmentInfo(key) {
+  return catalog.templates.find(t => t.key === key) || null;
+}
+
+function genderLabel(g) {
+  return { female: 'женский', male: 'мужской', unisex: 'унисекс' }[g] || g;
 }
 
 function schemaPositionFor(key) {
@@ -233,6 +321,11 @@ function schemaPositionFor(key) {
 }
 
 function render() {
+  const info = garmentInfo(state.garment);
+  document.getElementById('selGarment').textContent = info
+    ? `${info.name} · ${genderLabel(info.gender)}`
+    : 'Изделие не выбрано';
+
   const templateKeys = (templatesData[state.garment] || []);
   // Основные = те, что есть в META (имеют понятную позицию/подпись)
   let keys = templateKeys;
@@ -282,18 +375,92 @@ function render() {
   });
 }
 
-document.getElementById('garmentSeg').addEventListener('click', (e) => {
-  const b = e.target.closest('button'); if (!b) return;
-  state.garment = b.dataset.g;
-  document.querySelectorAll('#garmentSeg button').forEach(x => x.classList.toggle('on', x === b));
-  render();
-});
 document.getElementById('tabSeg').addEventListener('click', (e) => {
   const b = e.target.closest('button'); if (!b) return;
   state.tab = b.dataset.tab;
   document.querySelectorAll('#tabSeg button').forEach(x => x.classList.toggle('on', x === b));
   render();
 });
+
+/* === Каталог изделий === */
+const catalogBtn = document.getElementById('catalogBtn');
+const catalogModal = document.getElementById('catalogModal');
+const catalogGrid = document.getElementById('catalogGrid');
+const filters = document.getElementById('filters');
+
+function openCatalog() {
+  renderFilters();
+  renderCatalog();
+  catalogModal.classList.add('open');
+}
+function closeCatalog() {
+  catalogModal.classList.remove('open');
+}
+
+function renderFilters() {
+  const choices = [['Все', null]];
+  const parts = [];
+  parts.push(`<div class="grp"><span class="grp-label">Вид:</span>`);
+  parts.push(`<button class="chip${catState.category ? '' : ' on'}" data-f="category" data-v="">Все</button>`);
+  catalog.categories.forEach(c => {
+    parts.push(`<button class="chip${catState.category === c ? ' on' : ''}" data-f="category" data-v="${c}">${c}</button>`);
+  });
+  parts.push(`</div><div class="grp" style="margin-left:8px"><span class="grp-label">Пол:</span>`);
+  parts.push(`<button class="chip${catState.gender ? '' : ' on'}" data-f="gender" data-v="">Все</button>`);
+  catalog.genders.forEach(g => {
+    parts.push(`<button class="chip${catState.gender === g ? ' on' : ''}" data-f="gender" data-v="${g}">${genderLabel(g)}</button>`);
+  });
+  parts.push(`</div>`);
+  filters.innerHTML = parts.join('');
+}
+
+function renderCatalog() {
+  let items = catalog.templates;
+  if (catState.category) items = items.filter(t => t.category === catState.category);
+  if (catState.gender) items = items.filter(t => t.gender === catState.gender);
+
+  if (items.length === 0) {
+    catalogGrid.innerHTML = `<div class="empty-hint">Ничего не найдено по выбранным фильтрам.</div>`;
+    return;
+  }
+  catalogGrid.innerHTML = items.map(t => {
+    const thumb = t.image
+      ? `<img src="${t.image}" alt="${t.name}" loading="lazy">`
+      : `<div class="stub">🧵</div>`;
+    const sel = state.garment === t.key ? ' sel' : '';
+    return `<div class="card${sel}" data-key="${t.key}">
+        <div class="thumb">${thumb}</div>
+        <div class="cap">
+          <b>${t.name}</b>
+          <div class="sub">${t.description}</div>
+          <div class="tags"><span class="tag">${t.category}</span><span class="tag">${genderLabel(t.gender)}</span></div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+filters.addEventListener('click', (e) => {
+  const b = e.target.closest('.chip'); if (!b) return;
+  const f = b.dataset.f, v = b.dataset.v;
+  if (f === 'category') catState.category = v || null;
+  if (f === 'gender') catState.gender = v || null;
+  renderFilters();
+  renderCatalog();
+});
+
+catalogGrid.addEventListener('click', (e) => {
+  const card = e.target.closest('.card'); if (!card) return;
+  state.garment = card.dataset.key;
+  closeCatalog();
+  render();
+});
+
+catalogBtn.addEventListener('click', openCatalog);
+document.getElementById('closeCatalog').addEventListener('click', closeCatalog);
+catalogModal.addEventListener('click', (e) => {
+  if (e.target === catalogModal) closeCatalog();
+});
+document.getElementById('changeGarment').addEventListener('click', openCatalog);
 
 document.getElementById('togglePanel').addEventListener('click', () => {
   const open = panel.classList.toggle('open');
@@ -302,6 +469,7 @@ document.getElementById('togglePanel').addEventListener('click', () => {
 
 /* --- Построить: собрать заполненные мерки и отправить в чат --- */
 document.getElementById('buildBtn').addEventListener('click', () => {
+  if (!state.garment) { addError('Сначала выберите изделие в каталоге (👗).'); return; }
   const parts = [];
   measureList.querySelectorAll('input').forEach(inp => {
     if (inp.value !== '') {
@@ -310,7 +478,8 @@ document.getElementById('buildBtn').addEventListener('click', () => {
     }
   });
   if (parts.length === 0) { addError('Укажите хотя бы одну мерку.'); return; }
-  input.value = `Построй ${GARMENT_NAMES[state.garment]}. Мерки: ` + parts.join(', ') + '.';
+  const info = garmentInfo(state.garment);
+  input.value = `Построй изделие «${info ? info.name : state.garment}». Мерки: ` + parts.join(', ') + '.';
   send();
 });
 
@@ -392,9 +561,9 @@ input.addEventListener('keydown', (e) => {
   if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
 });
 
-addMsg('Здравствуйте! Я SeamlyAI — помогу создать лекало. '
-  + 'Нажмите «📏 Мерки» справа сверху: выберите изделие (юбка/лиф/брюки), '
-  + 'впишите мерки — схема покажет, где что мерить.', 'ai');
+addMsg('Здравствуйте! Я — виртуальное ателье, помогу создать лекало. '
+  + 'Нажмите «👗 Изделия» справа сверху: выберите изделие из каталога (с фильтрами по виду и полу), '
+  + 'затем в панели «📏 Мерки» впишите мерки — схема покажет, где что мерить.', 'ai');
 
 loadTemplates();
 </script>

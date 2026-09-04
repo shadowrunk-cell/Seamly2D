@@ -1,29 +1,45 @@
 """Эндпоинты генерации паттернов (лекал)."""
 from __future__ import annotations
 
+from typing import Optional
+
 from fastapi import APIRouter, HTTPException, Response
 from fastapi.responses import PlainTextResponse
 
 from ..pattern.generator import build_vit, generate_pattern
 from ..pattern.models import PatternRequest
-from ..pattern.templates import TEMPLATES
+from ..pattern.templates import GARMENT_CATEGORIES, GENDERS, TEMPLATES
 
 router = APIRouter(prefix="/api/patterns", tags=["patterns"])
 
 
 @router.get("/templates")
-def list_templates():
-    """Список доступных шаблонов конструкций."""
+def list_templates(
+    category: Optional[str] = None,
+    gender: Optional[str] = None,
+):
+    """Каталог доступных изделий (шаблонов) с фильтрами по виду и полу."""
+    items = [
+        {
+            "key": t.key,
+            "name": t.display_name,
+            "description": t.description,
+            "category": t.category,
+            "gender": t.gender,
+            "image": t.image,
+            "measurements_needed": t.required_measurements,
+        }
+        for t in TEMPLATES.values()
+    ]
+    if category:
+        items = [i for i in items if i["category"] == category]
+    if gender:
+        items = [i for i in items if i["gender"] == gender]
+
     return {
-        "templates": [
-            {
-                "key": t.key,
-                "name": t.display_name,
-                "description": t.description,
-                "measurements_needed": t.required_measurements,
-            }
-            for t in TEMPLATES.values()
-        ]
+        "categories": GARMENT_CATEGORIES,
+        "genders": GENDERS,
+        "templates": items,
     }
 
 
