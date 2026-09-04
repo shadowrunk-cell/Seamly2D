@@ -183,3 +183,9 @@ target_wrapper.sh
 
 # documents
 docs/
+
+# SeamlyAI AI-Service
+ai-service/.venv/
+ai-service/providers.yaml
+ai-service/__pycache__/
+

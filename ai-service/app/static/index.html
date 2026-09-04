@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SeamlyAI — AI-ассистент</title>
+<style>
+  :root {
+    --bg: #f5f6f8;
+    --panel: #ffffff;
+    --accent: #4f46e5;
+    --text: #1f2937;
+    --muted: #6b7280;
+    --border: #e5e7eb;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #111827; --panel: #1f2937; --text: #f9fafb;
+      --muted: #9ca3af; --border: #374151;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: -apple-system, Segoe UI, Roboto, sans-serif;
+    background: var(--bg); color: var(--text); display: flex; flex-direction: column; height: 100vh;
+  }
+  header {
+    padding: 14px 20px; background: var(--panel); border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  }
+  header .logo { font-weight: 700; font-size: 18px; }
+  header .sub { color: var(--muted); font-size: 13px; }
+  header select, header button {
+    background: var(--panel); color: var(--text); border: 1px solid var(--border);
+    border-radius: 8px; padding: 8px 12px; font-size: 14px; cursor: pointer;
+  }
+  .spacer { flex: 1; }
+  main { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 12px; }
+  .msg {
+    max-width: 75%; padding: 12px 16px; border-radius: 14px; line-height: 1.5;
+    white-space: pre-wrap; word-wrap: break-word;
+  }
+  .msg.user { align-self: flex-end; background: var(--accent); color: #fff; }
+  .msg.ai { align-self: flex-start; background: var(--panel); border: 1px solid var(--border); }
+  .msg .img { margin-top: 8px; max-width: 220px; border-radius: 8px; display: block; }
+  .error { align-self: center; color: #dc2626; font-size: 13px; }
+  .typing { color: var(--muted); font-style: italic; align-self: flex-start; }
+  footer {
+    padding: 14px 20px; background: var(--panel); border-top: 1px solid var(--border);
+    display: flex; gap: 10px; align-items: center;
+  }
+  textarea {
+    flex: 1; resize: none; border: 1px solid var(--border); border-radius: 10px;
+    padding: 10px 14px; font-size: 14px; font-family: inherit; background: var(--bg); color: var(--text);
+    min-height: 44px; max-height: 140px;
+  }
+  #send, #attach {
+    background: var(--accent); color: #fff; border: none; border-radius: 10px;
+    padding: 10px 18px; font-size: 14px; cursor: pointer;
+  }
+  #attach { background: var(--panel); color: var(--text); border: 1px solid var(--border); }
+  #attach.has-image { background: #16a34a; color: #fff; border-color: #16a34a; }
+  .panel-badge { font-size: 12px; color: var(--muted); }
+  #loading { display: none; }
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">SeamlyAI</div>
+  <div class="sub">AI-ассистент конструирования одежды</div>
+  <div class="spacer"></div>
+  <span class="panel-badge">Роль:</span>
+  <select id="role">
+    <option value="text">Текст</option>
+    <option value="vision">Vision (зрение)</option>
+  </select>
+  <button id="providers" title="Обновить список провайдеров">Провайдеры</button>
+</header>
+<main id="chat"></main>
+<footer>
+  <button id="attach" title="Прикрепить изображение (для vision)">📎</button>
+  <textarea id="input" placeholder="Например: построй базовый лиф с мерками рост 165, ОГ 90, ОТ 70, ОБ 96..."></textarea>
+  <button id="send">Отправить</button>
+</footer>
+<input type="file" id="file" accept="image/*" style="display:none">
+<div id="loading" class="panel-badge" style="text-align:center;padding:6px">Генерация...</div>
+
+<script>
+const chat = document.getElementById('chat');
+const input = document.getElementById('input');
+const roleSel = document.getElementById('role');
+let attachedImage = null;
+
+function addMsg(text, who, image) {
+  const el = document.createElement('div');
+  el.className = 'msg ' + who;
+  if (image) {
+    const img = document.createElement('img');
+    img.className = 'img'; img.src = image; img.alt = 'прикреплённое изображение';
+    el.appendChild(img);
+  }
+  el.appendChild(document.createTextNode(text));
+  chat.appendChild(el);
+  chat.scrollTop = chat.scrollHeight;
+  return el;
+}
+
+function addError(text) {
+  const el = document.createElement('div');
+  el.className = 'error'; el.textContent = text;
+  chat.appendChild(el);
+  chat.scrollTop = chat.scrollHeight;
+}
+
+async function send() {
+  const text = input.value.trim();
+  if (!text && !attachedImage) return;
+  const role = roleSel.value;
+
+  let imageBlock = null;
+  if (attachedImage) {
+    if (role !== 'vision') {
+      addError('Для отправки изображения выберите роль Vision');
+      return;
+    }
+    imageBlock = {
+      type: 'image',
+      mime: attachedImage.mime,
+      data: attachedImage.data.split(',')[1]  // убираем префикс data:...
+    };
+  }
+
+  addMsg(text || '📎 изображение', 'user', attachedImage ? attachedImage.data : null);
+  input.value = '';
+  attachedImage = null;
+  document.getElementById('attach').classList.remove('has-image');
+  document.getElementById('attach').textContent = '📎';
+  document.getElementById('loading').style.display = 'block';
+
+  try {
+    const resp = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt: text, image: imageBlock, role: role })
+    });
+    const data = await resp.json();
+    document.getElementById('loading').style.display = 'none';
+    if (!resp.ok) throw new Error(data.detail || 'Ошибка сервера');
+    addMsg(data.reply, 'ai');
+  } catch (e) {
+    document.getElementById('loading').style.display = 'none';
+    addError('Ошибка: ' + e.message);
+  }
+}
+
+document.getElementById('send').addEventListener('click', send);
+document.getElementById('file').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    attachedImage = { mime: file.type, data: ev.target.result };
+    document.getElementById('attach').classList.add('has-image');
+    document.getElementById('attach').textContent = '✅';
+    roleSel.value = 'vision';
+  };
+  reader.readAsDataURL(file);
+});
+document.getElementById('attach').addEventListener('click', () => document.getElementById('file').click());
+
+document.getElementById('providers').addEventListener('click', async () => {
+  try {
+    const resp = await fetch('/api/providers');
+    const data = await resp.json();
+    const info = data.providers.map(p =>
+      `${p.name} [${p.type}]: text→${p.models_by_role.text}, vision→${p.models_by_role.vision}`
+    ).join(' | ');
+    addMsg('Провайдеры: ' + info, 'ai');
+  } catch (e) {
+    addError('Не удалось получить провайдеров: ' + e.message);
+  }
+});
+
+input.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
+});
+
+addMsg('Здравствуйте! Я SeamlyAI — помогу создать или скорректировать лекало. '
+  + 'Введите запрос с мерками (рост, ОГ, ОТ, ОБ) или прикрепите эскиз.', 'ai');
+</script>
+</body>
+</html>
