@@ -11,9 +11,9 @@ from .routes import chat, patterns, providers
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 
 app = FastAPI(
-    title="SeamlyAI AI-Service",
-    description="AI-микросервис для конструирования одежды: чат (текст/vision) "
-    "и генерация лекал по шаблонам VIT.",
+    title="Виртуальное ателье",
+    description="AI-сервис конструирования одежды: чат (текст/vision) "
+    "и генерация лекал.",
     version="0.1.0",
 )
 
@@ -32,7 +32,7 @@ app.include_router(providers.router)
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "service": "seamlyai-ai"}
+    return {"status": "ok"}
 
 
 if STATIC_DIR.exists():
