@@ -4,10 +4,11 @@ from __future__ import annotations
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Response
-from fastapi.responses import PlainTextResponse
+from fastapi.responses import FileResponse, PlainTextResponse
 
 from ..pattern.generator import build_vit, generate_pattern
 from ..pattern.models import PatternRequest
+from ..pattern.render import RenderError, RenderUnavailable, render_pattern
 from ..pattern.templates import GARMENT_CATEGORIES, GENDERS, TEMPLATES
 
 router = APIRouter(prefix="/api/patterns", tags=["patterns"])
@@ -61,6 +62,32 @@ def download_pattern(req: PatternRequest):
     """Генерирует паттерн и возвращает его как файл .val."""
     result = generate_pattern(req)
     return PlainTextResponse(result.content, media_type="application/xml")
+
+
+@router.post("/render")
+def render_pattern_png(req: PatternRequest):
+    """Генерирует лекало и рендерит его в PNG через headless Seamly2D (Docker)."""
+    import tempfile
+    from pathlib import Path
+
+    try:
+        tmp_root = Path(tempfile.gettempdir())
+        result = render_pattern(
+            template_key=req.template,
+            measurements=req.to_cm,
+            size=req.size,
+            adjustments=req.adjustments,
+            out_dir=tmp_root / "seamly_render",
+        )
+    except RenderUnavailable as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except RenderError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return FileResponse(
+        result.png_path,
+        media_type="image/png",
+        filename=f"{req.template}_{req.size or 'custom'}.png",
+    )
 
 
 @router.get("/measurements/{template}")

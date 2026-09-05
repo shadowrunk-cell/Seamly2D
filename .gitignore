@@ -189,3 +189,9 @@ ai-service/.venv/
 ai-service/providers.yaml
 ai-service/__pycache__/
 
+# Output of headless renders (PNG/SVG/DXF) from seamly-renderer
+seamly-renderer/render_out/
+
+# Seamly2D AppImage (download separately before building the render image)
+ai-service/seamly-renderer/*.AppImage
+

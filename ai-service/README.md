@@ -54,7 +54,22 @@ uvicorn app.main:app --reload
 | GET  | `/api/patterns/templates` | Доступные шаблоны и нужные мерки |
 | POST | `/api/patterns` | Генерация лекала по шаблону и меркам |
 | POST | `/api/patterns/download` | Генерация и отдача `.val` как файла |
+| POST | `/api/patterns/render` | Рендер лекала в PNG через headless Seamly2D (требует Docker) |
 | POST | `/api/chat` | Чат с LLM (текст + опц. картинка) |
+
+## Рендер в PNG (требует Docker)
+
+`POST /api/patterns/render` генерирует `.val` (modern 0.6.8) и `.vit` из запроса,
+запускает headless-рендер в контейнере `seamly-renderer:latest` и возвращает PNG.
+
+Собрать образ рендера:
+```bash
+docker build -t seamly-renderer:latest ai-service/seamly-renderer
+```
+
+Ошибки:
+- `503 RenderUnavailable` — нет Docker/демона;
+- `422 RenderError` — контейнер не дал PNG (например, «empty scene» — в шаблоне нет деталей).
 
 ## Структура
 
@@ -64,11 +79,13 @@ ai-service/
 │  ├─ main.py                 # FastAPI точка входа
 │  ├─ config.py               # загрузка providers.yaml
 │  ├─ providers/              # адаптеры LLM (openai_compat, anthropic)
-│  ├─ pattern/                # генерация лекал (шаблоны, мерки)
+│  ├─ pattern/                # генерация лекал (шаблоны, мерки, конвертер, рендер)
 │  ├─ routes/                 # API-маршруты
 │  └─ static/index.html       # веб-чат
-├─ templates/                 # шаблоны .val (лиф, юбка, брюки)
-├─ tests/                     # тесты (без LLM)
+├─ templates/                 # шаблоны .val (гибридная схема <draw>+<details>)
+├─ tests/                     # тесты (без LLM; рендер мокается)
+├─ scripts/build_pool.py      # конвертация всех шаблонов в 0.6.8 + генерация мерок
+├─ seamly-renderer/           # Docker-образ headless рендера (Dockerfile, AppImage, скрипты)
 ├─ providers.example.yaml
 └─ requirements.txt
 ```
@@ -76,7 +93,7 @@ ai-service/
 ## Тесты
 
 ```bash
-python tests/test_generator.py
+python -m pytest tests -q     # 21 тест
 ```
 
 ## Шаблоны лекал

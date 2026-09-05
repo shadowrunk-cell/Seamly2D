@@ -15,6 +15,7 @@ from typing import Optional
 
 from .models import PatternRequest, PatternResponse
 from .templates import get_template
+from .measurement_names import SMLY_KNOWN_MEASUREMENTS
 
 
 def _val(v: float) -> str:
@@ -130,17 +131,34 @@ def build_full_measurement_table(
 # ------------------------------------------------------------------
 # Файл мерок .vit
 # ------------------------------------------------------------------
-def build_vit(user_measurements: dict[str, float], template_key: str) -> str:
+def build_vit(
+    user_measurements: dict[str, float],
+    template_key: str,
+    size: Optional[str] = None,
+) -> str:
     """Собирает XML .vit-файла мерок, содержащий ВСЕ мерки шаблона."""
-    table, _ = build_full_measurement_table(user_measurements, template_key=template_key)
+    table, _ = build_full_measurement_table(
+        user_measurements, size=size, template_key=template_key
+    )
 
     vit = ET.Element("vit")
     ET.SubElement(vit, "version").text = "0.3.3"
     ET.SubElement(vit, "read-only").text = "false"
     ET.SubElement(vit, "unit").text = "cm"
     ET.SubElement(vit, "pm_system").text = "998"
+    personal = ET.SubElement(vit, "personal")
+    for _child in ("family-name", "given-name"):
+        ET.SubElement(personal, _child).text = ""
+    ET.SubElement(personal, "birth-date").text = "1990-01-01"
+    ET.SubElement(personal, "gender").text = "female"
+    ET.SubElement(personal, "email").text = ""
     body = ET.SubElement(vit, "body-measurements")
+    # .vit — файл пользовательских мерок: содержит ТОЛЬКО стандартные имена
+    # Seamly. Нестандартные производные (bust_point, hip_point и т.п.) в файл
+    # не попадают — иначе Seamly падает с "invalid known measurement(s)".
     for name in sorted(table.keys()):
+        if name not in SMLY_KNOWN_MEASUREMENTS:
+            continue
         ET.SubElement(body, "m", name=name, value=_val(table[name]))
     ET.indent(vit, space="    ")
     return ET.tostring(vit, encoding="unicode", xml_declaration=True)
