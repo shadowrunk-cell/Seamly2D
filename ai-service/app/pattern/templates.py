@@ -16,6 +16,7 @@ GARMENT_CATEGORIES: list[str] = [
     "юбки",
     "брюки",
     "корсеты",
+    "рубашки",
 ]
 # Пол: female / male / unisex (отображаем в UI по-русски)
 GENDERS: list[str] = ["female", "male", "unisex"]
@@ -184,6 +185,23 @@ TEMPLATES: dict[str, TemplateInfo] = {
         image="/img/corset_1890.png",
         required_measurements=_CORSET_MEASUREMENTS_HIP,
         base_measurements=["bust_circ", "waist_circ"],
+    ),
+    "male_shirt": TemplateInfo(
+        key="male_shirt",
+        filename="male_shirt.val",
+        display_name="Мужская рубашка",
+        description="Мужская классическая рубашка по методике Timo Virtaneva "
+        "(сэмпл Seamly2D). Кокетка, полочка с планкой, спинка со складкой, "
+        "короткий рукав и нагрудный карман.",
+        category="рубашки",
+        gender="male",
+        image="/img/male_shirt.png",
+        required_measurements=[
+            "neck_back_to_waist_b", "bust_circ", "waist_circ", "hip_circ",
+            "height", "neck_circ", "shoulder_length", "hand_circ",
+            "arm_shoulder_tip_to_wrist_bent",
+        ],
+        base_measurements=["bust_circ", "waist_circ", "height"],
     ),
 }
 

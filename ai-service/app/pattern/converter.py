@@ -26,7 +26,10 @@ def _convert_detail_opening(tag: str) -> str:
     tag = re.sub(r'\s+hideMainPath="[^"]*"', "", tag)
     tag = re.sub(r'seamAllowance="true"', 'seamAllowance="1"', tag)
     tag = re.sub(r'seamAllowance="false"', 'seamAllowance="0"', tag)
-    tag = re.sub(r"^<detail", '<piece closed="1"', tag)
+    if re.search(r'\sclosed="[^"]*"', tag):
+        tag = tag.replace("<detail", "<piece", 1)
+    else:
+        tag = tag.replace("<detail", '<piece closed="1"', 1)
     return tag
 
 
@@ -42,7 +45,17 @@ def convert(text: str) -> str:
         text,
     )
 
-    # 2. ensure <patternLabel> exists (required by 0.6.8) with a <line> child.
+    # версия исходного файла (для legacy-решений ниже)
+    mver = re.search(r"<version>\s*(?P<v>[0-9]+\.[0-9]+\.[0-9]+)", text)
+    ver_parts = tuple(int(x) for x in (mver.group("v").split(".") if mver else ["0", "0", "0"]))
+
+    # Файлы старее 0.6 не трогаем: в их схемах нет patternLabel/draftBlock и т.п.,
+    # а сам Seamly 0.6.8 при открытии переконвертирует старый формат.
+    # (legacy-файлы 0.2-0.5 с не-ASCII символами в запись см. probe-тесты.)
+    if ver_parts < (0, 6, 0):
+        return text
+
+    # 2. ensure <patternLabel> exists (0.6+; в более старых схеме нет такого элемента)
     if "<patternLabel" not in text:
         label = (
             '\n    <patternLabel>\n        <line alignment="0" bold="false" '

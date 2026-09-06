@@ -126,7 +126,7 @@ ai-service/
 ## Тесты
 
 ```bash
-python -m pytest tests -q     # 21 тест
+python -m pytest tests -q     # 28 тестов
 ```
 
 ## Шаблоны лекал
@@ -138,5 +138,12 @@ python -m pytest tests -q     # 21 тест
 | Шаблон | Ключ | Источник |
 |--------|------|----------|
 | Базовый лиф | `bodice` | Darragh Starr / Bodice_Exact |
+| Лиф (Mandy Barrington) | `bodice_mb` | Mandy Barrington / Female Bodice |
 | Базовая юбка | `skirt` | TheShapesOfFabric / basic skirt block |
 | Базовые брюки | `trousers` | TheShapesOfFabric / basic trouser block |
+| Корсет-основа | `corset_base` | Mandy Barrington / corset_base |
+| Корсет «Пара шарнирных» (1598) | `corset_1598` | Mandy Barrington |
+| Корсет 1735 | `corset_1735` | Mandy Barrington |
+| Корсет 1875 | `corset_1875` | Mandy Barrington |
+| Свадебный корсет 1890 | `corset_1890` | Mandy Barrington |
+| Мужская рубашка | `male_shirt` | Seamly2D sample (Timo Virtaneva) |

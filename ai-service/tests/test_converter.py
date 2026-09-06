@@ -152,13 +152,23 @@ def test_point_of_intersection_arcs_kept():
 
 
 def test_convert_all_pool_templates():
-    """Все шаблоны из реестра конвертируются в 0.6.8 без legacy-типов."""
+    """Все шаблоны из реестра конвертируются в 0.6.8 без legacy-типов.
+
+    Legacy-файлы (старее 0.6) пропускаются как есть: их конвертацией в 0.6.8
+    занимается сам Seamly2D при открытии (наш convert такие не трогает).
+    """
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
     from app.pattern.templates import TEMPLATES
 
     for tmpl in TEMPLATES.values():
         content = tmpl.path.read_text(encoding="utf-8")
         out = convert(content)
+        m = re.search(r"<version>\s*([0-9]+\.[0-9]+\.[0-9]+)", out)
+        version = tuple(int(x) for x in m.group(1).split(".")) if m else (0, 0, 0)
+        if version < (0, 6, 0):
+            assert out == content, f"{tmpl.key}: legacy-файл не должен меняться"
+            assert "<measurements" in out, f"{tmpl.key}: повреждён legacy-файл"
+            continue
         assert "<draftBlock" in out, f"{tmpl.key}: нет draftBlock"
         assert "<version>0.6.8</version>" in out, f"{tmpl.key}: не 0.6.8"
         assert not re.search(
