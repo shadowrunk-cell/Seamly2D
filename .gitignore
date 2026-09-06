@@ -189,6 +189,11 @@ ai-service/.venv/
 ai-service/providers.yaml
 ai-service/__pycache__/
 
+# Docker Compose local overrides (e.g. SEAMLYAI_WEB_PORT)
+.env
+.env.*
+!.env.example
+
 # Output of headless renders (PNG/SVG/DXF) from seamly-renderer
 seamly-renderer/render_out/
 seamly-renderer/async_out/

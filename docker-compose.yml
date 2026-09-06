@@ -1,0 +1,68 @@
+# SeamlyAI — развёртывание через Docker Compose.
+#
+# redis   — брокер/бэкенд Celery (async-очередь рендера)
+# app     — FastAPI-сервис (uvicorn :8000)
+# worker  — celery-воркер рендера (пул solo — рендер и так многопоточность через docker)
+#
+# РЕНДЕР ЛЕКАЛ: сервис запускает контейнер seamly-renderer через демон хоста.
+# Требования:
+#   1) образ seamly-renderer собран на хосте:
+#        docker build -t seamly-renderer:latest ai-service/seamly-renderer
+#   2) каталог SEAMLYAI_HOST_RENDER_ROOT существует на хосте и доступен демону
+#      (рабочие файлы val/vit монтируются в контейнер рендера).
+#
+# Запуск:
+#   docker compose up -d --build
+# Переменные окружения (можно указать в .env):
+#   SEAMLYAI_HOST_RENDER_ROOT=/opt/seamlyai/render_jobs
+
+services:
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  app:
+    build: ./ai-service
+    image: seamlyai:latest
+    restart: unless-stopped
+    environment:
+      SEAMLYAI_REDIS_URL: redis://redis:6379/0
+      SEAMLYAI_RENDER_ROOT: /app/render_root
+      SEAMLYAI_HOST_RENDER_ROOT: ${SEAMLYAI_HOST_RENDER_ROOT:-/opt/seamlyai/render_jobs}
+    volumes:
+      - ${SEAMLYAI_HOST_RENDER_ROOT:-/opt/seamlyai/render_jobs}:/app/render_root
+      - /var/run/docker.sock:/var/run/docker.sock
+    ports:
+      - "${SEAMLYAI_WEB_PORT:-8000}:8000"
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/api/patterns/templates', timeout=3).status == 200 else 1)"
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  worker:
+    image: seamlyai:latest
+    command: celery -A app.tasks.celery_app worker --loglevel=warning --pool=solo
+    restart: unless-stopped
+    environment:
+      SEAMLYAI_REDIS_URL: redis://redis:6379/0
+      SEAMLYAI_RENDER_ROOT: /app/render_root
+      SEAMLYAI_HOST_RENDER_ROOT: ${SEAMLYAI_HOST_RENDER_ROOT:-/opt/seamlyai/render_jobs}
+    volumes:
+      - ${SEAMLYAI_HOST_RENDER_ROOT:-/opt/seamlyai/render_jobs}:/app/render_root
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      redis:
+        condition: service_healthy

@@ -11,12 +11,11 @@ from __future__ import annotations
 
 import logging
 import os
-from pathlib import Path
 
 from celery import Celery
 from celery.exceptions import MaxRetriesExceededError
 
-from .pattern.render import RenderError, render_pattern
+from .pattern.render import RenderError, default_async_out_dir, render_pattern
 
 log = logging.getLogger(__name__)
 
@@ -61,9 +60,7 @@ def render_job(
             measurements=measurements,
             size=size,
             adjustments=adjustments,
-            out_dir=Path(__file__).resolve().parent.parent.parent.parent
-            / "seamly-renderer"
-            / "async_out",
+            out_dir=default_async_out_dir(),
             format=format,
         )
     except RenderError:

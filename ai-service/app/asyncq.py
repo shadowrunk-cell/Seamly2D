@@ -18,7 +18,7 @@ from typing import Any, Optional
 from kombu.exceptions import OperationalError
 
 from . import tasks
-from .pattern.render import render_pattern
+from .pattern.render import default_async_out_dir, render_pattern
 from .tasks import render_job
 
 _LOCAL_JOBS: dict[str, dict[str, Any]] = {}
@@ -95,9 +95,7 @@ def submit_render_job(
                 measurements=measurements,
                 size=size,
                 adjustments=adjustments,
-                out_dir=Path(__file__).resolve().parent.parent.parent.parent
-                / "seamly-renderer"
-                / "async_out",
+                out_dir=default_async_out_dir(),
                 format=format,
             )
             payload = {

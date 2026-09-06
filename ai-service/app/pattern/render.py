@@ -10,6 +10,7 @@
 """
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
 import tempfile
@@ -21,7 +22,49 @@ from .generator import build_vit
 from .templates import get_template
 
 RENDERER_IMAGE = "seamly-renderer:latest"
-_CONVERT_HOST_ROOT = Path(__file__).resolve().parent.parent.parent.parent / "seamly-renderer"
+_LEGACY_RENDER_ROOT = (
+    Path(__file__).resolve().parent.parent.parent.parent / "seamly-renderer"
+)
+
+
+def default_render_root() -> Path:
+    """Каталог для job/out артефактов рендера.
+
+    Локально — репозиторий `seamly-renderer`. В контейнере задаётся через
+    `SEAMLYAI_RENDER_ROOT` (общий volume, смонтированный и в app, и в worker).
+    """
+    env = os.getenv("SEAMLYAI_RENDER_ROOT")
+    return Path(env).resolve() if env else _LEGACY_RENDER_ROOT
+
+
+def host_mount_root() -> Path:
+    """Каталог на ХОСТЕ (для демона Docker), в котором лежит рендер-корень.
+
+    В Docker-деплое сервис запускает `docker run -v <host_path>:/job`, и bind-путь
+    интерпретируется демоном относительно хоста. Локально совпадает с корнем.
+    """
+    env = os.getenv("SEAMLYAI_HOST_RENDER_ROOT")
+    return Path(env).resolve() if env else default_render_root()
+
+
+def default_async_out_dir() -> Path:
+    """Каталог результатов async-job-ов."""
+    env = os.getenv("SEAMLYAI_ASYNC_OUT_DIR")
+    return Path(env).resolve() if env else default_render_root() / "async_out"
+
+
+def _mount_view(path: Path) -> Path:
+    """Возвращает путь, под которым `path` виден демону Docker на хосте."""
+    root = default_render_root().resolve()
+    host = host_mount_root().resolve()
+    try:
+        rel = path.resolve().relative_to(root)
+    except ValueError:
+        return path
+    if host == root:
+        return path
+    return host / rel
+
 
 # Поддерживаемые форматы вывода Seamly2D (для render_one.sh).
 FORMATS: dict[str, dict[str, str]] = {
@@ -83,7 +126,7 @@ def render_pattern(
 
     fmt = FORMATS[format]
     tag = f"{template_key}_{(size or 'custom').replace(' ', '')}"
-    job_dir = Path(tempfile.mkdtemp(prefix=f"seamly_{tag}_", dir=_CONVERT_HOST_ROOT))
+    job_dir = Path(tempfile.mkdtemp(prefix=f"seamly_{tag}_", dir=default_render_root()))
     out_base = out_dir or (job_dir.parent / f"{tag}_out")
     out_base.mkdir(parents=True, exist_ok=True)
     try:
@@ -99,10 +142,13 @@ def render_pattern(
         val_path.write_text(val, encoding="utf-8")
         vit_path.write_text(build_vit(measurements, template_key, size=size), encoding="utf-8")
 
+        # bind-пути для демона Docker видятся со стороны хоста
+        mount_job = _mount_view(job_dir)
+        mount_out = _mount_view(out_base)
         cmd = [
             "docker", "run", "--rm",
-            "-v", f"{job_dir}:/job",
-            "-v", f"{out_base}:/out",
+            "-v", f"{mount_job}:/job",
+            "-v", f"{mount_out}:/out",
             RENDERER_IMAGE,
             "bash", "/usr/local/bin/render_one.sh",
             f"/job/{val_path.name}",

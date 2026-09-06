@@ -104,6 +104,43 @@ curl -o skirt.png http://localhost:8000/api/patterns/jobs/<job_id>/result
 Если Redis недоступен — задачи выполняются локальными потоками (dev-режим),
 API-контракт тот же. Транзиентные сбои рендера автоматически ретраятся с backoff.
 
+## Развёртывание (Docker Compose, корень репозитория)
+
+Полный стек поднимается одной командой:
+
+```bash
+# 0. заранее собрать образ рендера на хосте:
+docker build -t seamly-renderer:latest ai-service/seamly-renderer
+
+# 1. каталог рабочих файлов рендера на хосте (внутри VM используются контейнером):
+export SEAMLYAI_HOST_RENDER_ROOT=/opt/seamlyai/render_jobs
+
+# 2. собрать и запустить redis + app + worker:
+docker compose up -d --build
+```
+
+Что делает compose:
+
+- `redis` — брокер/бэкенд Celery (`SEAMLYAI_REDIS_URL`);
+- `app` — FastAPI/uvicorn (`:8000`; порт на хосте переопределяется
+  через `SEAMLYAI_WEB_PORT`, напр. `SEAMLYAI_WEB_PORT=8001`);
+- `worker` — celery-воркер (`--pool=solo`), тот же образ.
+
+Рендер через Docker-in-Docker: в контейнеры монтируются `/var/run/docker.sock`
+(демон хоста) и рабочий каталог `$SEAMLYAI_HOST_RENDER_ROOT:/app/render_root`
+(одинаковые пути в контейнере и на хосте — контейнер-рендер монтирует те же
+файлы). Переменные сервиса:
+
+| Переменная | По умолчанию | Назначение |
+|-----------|--------------|-----------|
+| `SEAMLYAI_REDIS_URL` | `redis://redis:6379/0` | брокер Celery |
+| `SEAMLYAI_RENDER_ROOT` | `/app/render_root` | корень job/out артефактов в контейнере |
+| `SEAMLYAI_HOST_RENDER_ROOT` | `/opt/seamlyai/render_jobs` | тот же каталог на хосте (для docker bind) |
+| `SEAMLYAI_WEB_PORT` | `8000` | внешний порт API |
+
+Локальный запуск на Windows: порт 8000 часто занят — задайте
+`SEAMLYAI_WEB_PORT=8001` в `.env` (файл в `.gitignore`).
+
 ## Структура
 
 ```
@@ -119,6 +156,8 @@ ai-service/
 ├─ tests/                     # тесты (без LLM; рендер мокается)
 ├─ scripts/build_pool.py      # конвертация всех шаблонов в 0.6.8 + генерация мерок
 ├─ seamly-renderer/           # Docker-образ headless рендера (Dockerfile, AppImage, скрипты)
+├─ Dockerfile                 # образ сервиса (python:3.11-slim + статический docker CLI)
+├─ .dockerignore
 ├─ providers.example.yaml
 └─ requirements.txt
 ```

@@ -9,7 +9,13 @@ from fastapi.responses import FileResponse, PlainTextResponse
 from ..asyncq import download_path, get_job, submit_render_job
 from ..pattern.generator import build_vit, generate_pattern
 from ..pattern.models import PatternRequest
-from ..pattern.render import RenderError, RenderUnavailable, render_pattern
+from ..pattern.render import (
+    FORMATS,
+    RenderError,
+    RenderUnavailable,
+    default_render_root,
+    render_pattern,
+)
 from ..pattern.templates import GARMENT_CATEGORIES, GENDERS, TEMPLATES
 
 router = APIRouter(prefix="/api/patterns", tags=["patterns"])
@@ -71,21 +77,15 @@ def render_pattern_png(req: PatternRequest, format: str = "png"):
 
     Формат: png (по умолчанию), svg, pdf, pdf-tiled, jpg, dxf, dxf-aama.
     """
-    import tempfile
-    from pathlib import Path
-
     try:
-        tmp_root = Path(tempfile.gettempdir())
         result = render_pattern(
             template_key=req.template,
             measurements=req.to_cm,
             size=req.size,
             adjustments=req.adjustments,
-            out_dir=tmp_root / "seamly_render",
+            out_dir=default_render_root() / "out",
             format=format,
         )
-        from ..pattern.render import FORMATS
-
         media = FORMATS[result.format]["media"]
     except RenderUnavailable as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
