@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Виртуальное ателье</title>
+<style>
+  :root {
+    --bg: #f5f6f8;
+    --panel: #ffffff;
+    --accent: #4f46e5;
+    --text: #1f2937;
+    --muted: #6b7280;
+    --border: #e5e7eb;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #111827; --panel: #1f2937; --text: #f9fafb;
+      --muted: #9ca3af; --border: #374151;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0; font-family: -apple-system, Segoe UI, Roboto, sans-serif;
+    background: var(--bg); color: var(--text); display: flex; flex-direction: column; height: 100vh;
+  }
+  header {
+    padding: 14px 20px; background: var(--panel); border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  }
+  header .logo { font-weight: 700; font-size: 18px; }
+  header .sub { color: var(--muted); font-size: 13px; }
+  header select, header button {
+    background: var(--panel); color: var(--text); border: 1px solid var(--border);
+    border-radius: 8px; padding: 8px 12px; font-size: 14px; cursor: pointer;
+  }
+  .spacer { flex: 1; }
+  .workspace { flex: 1; display: flex; overflow: hidden; }
+  main { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 12px; }
+  .msg {
+    max-width: 75%; padding: 12px 16px; border-radius: 14px; line-height: 1.5;
+    white-space: pre-wrap; word-wrap: break-word;
+  }
+  .msg.user { align-self: flex-end; background: var(--accent); color: #fff; }
+  .msg.ai { align-self: flex-start; background: var(--panel); border: 1px solid var(--border); }
+  .msg .img { margin-top: 8px; max-width: 220px; border-radius: 8px; display: block; }
+  .error { align-self: center; color: #dc2626; font-size: 13px; }
+  .typing { color: var(--muted); font-style: italic; align-self: flex-start; }
+  footer {
+    padding: 14px 20px; background: var(--panel); border-top: 1px solid var(--border);
+    display: flex; gap: 10px; align-items: center;
+  }
+  textarea {
+    flex: 1; resize: none; border: 1px solid var(--border); border-radius: 10px;
+    padding: 10px 14px; font-size: 14px; font-family: inherit; background: var(--bg); color: var(--text);
+    min-height: 44px; max-height: 140px;
+  }
+  #send, #attach {
+    background: var(--accent); color: #fff; border: none; border-radius: 10px;
+    padding: 10px 18px; font-size: 14px; cursor: pointer;
+  }
+  #attach { background: var(--panel); color: var(--text); border: 1px solid var(--border); }
+  #attach.has-image { background: #16a34a; color: #fff; border-color: #16a34a; }
+  .panel-badge { font-size: 12px; color: var(--muted); }
+  #loading { display: none; }
+
+  /* === Панель мерок === */
+  #panel {
+    width: 0; overflow: hidden; background: var(--panel); border-left: 1px solid var(--border);
+    transition: width .18s ease; flex-shrink: 0; display: flex; flex-direction: column;
+  }
+  #panel.open { width: 420px; }
+  #panelBody { flex: 1; overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 12px; }
+  #panelBody h3 { margin: 0 0 2px; font-size: 16px; }
+  .phint { margin: 0; color: var(--muted); font-size: 12px; }
+
+  .seg { display: flex; border: 1px solid var(--border); border-radius: 9px; overflow: hidden; }
+  .seg button {
+    flex: 1; padding: 7px 8px; font-size: 13px; border: none; background: var(--panel);
+    color: var(--muted); cursor: pointer;
+  }
+  .seg button.on { background: var(--accent); color: #fff; }
+  .seg + .seg { margin-top: 6px; }
+
+  .schema-wrap { border: 1px solid var(--border); border-radius: 10px; padding: 6px; background: var(--bg); }
+  .schema-wrap svg { width: 100%; height: auto; display: block; }
+
+  .legend { display: flex; flex-wrap: wrap; gap: 8px; font-size: 12px; }
+  .legend .lg { display: inline-flex; align-items: center; gap: 4px; color: var(--muted); }
+  .legend .dot { width: 12px; height: 3px; border-radius: 2px; display: inline-block; }
+
+  .measure-list { display: flex; flex-direction: column; gap: 8px; }
+  .mrow { display: flex; align-items: center; gap: 8px; }
+  .mrow .color { width: 4px; align-self: stretch; border-radius: 2px; flex-shrink: 0; }
+  .mrow label { flex: 1; font-size: 13px; }
+  .mrow input[type=number] {
+    width: 84px; padding: 6px 8px; font-size: 14px; border: 1px solid var(--border);
+    border-radius: 8px; background: var(--bg); color: var(--text);
+  }
+  .mrow input::-webkit-outer-spin-button, .mrow input::-webkit-inner-spin-button { opacity: 1; }
+  .mnote { font-size: 11px; color: var(--muted); }
+
+  #buildBtn {
+    background: var(--accent); color: #fff; border: none; border-radius: 10px;
+    padding: 11px; font-size: 14px; cursor: pointer; width: 100%;
+  }
+
+  .export-row { display: flex; gap: 8px; align-items: stretch; }
+  .export-row select {
+    flex: 1; padding: 8px 10px; border: 1px solid var(--border); border-radius: 10px;
+    background: var(--bg); color: var(--text); font-size: 13px; font-family: inherit;
+  }
+  #exportBtn {
+    background: var(--panel); color: var(--text); border: 1px solid var(--border);
+    border-radius: 10px; padding: 8px 14px; font-size: 13px; cursor: pointer;
+  }
+  #exportBtn:disabled { opacity: .5; cursor: not-allowed; }
+  .build-hint { font-size: 11px; color: var(--muted); margin: 0; }
+  .saving { color: var(--muted); font-size: 12px; text-align: center; padding: 4px; }
+
+  /* === Каталог изделий === */
+  .modal-backdrop {
+    position: fixed; inset: 0; background: rgba(0,0,0,.45);
+    display: none; align-items: center; justify-content: center; z-index: 50;
+  }
+  .modal-backdrop.open { display: flex; }
+  .modal {
+    background: var(--panel); border-radius: 14px; width: 760px; max-width: 94vw;
+    max-height: 88vh; display: flex; flex-direction: column; overflow: hidden;
+  }
+  .modal-head {
+    padding: 16px 20px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 10px;
+  }
+  .modal-head h2 { margin: 0; font-size: 18px; flex: 1; }
+  .modal-head button {
+    background: var(--panel); color: var(--muted); border: 1px solid var(--border);
+    border-radius: 8px; padding: 6px 10px; cursor: pointer; font-size: 13px;
+  }
+  .filters { display: flex; gap: 8px; padding: 12px 20px; flex-wrap: wrap; border-bottom: 1px solid var(--border); }
+  .filters .grp { display: flex; align-items: center; gap: 6px; }
+  .filters .grp-label { font-size: 12px; color: var(--muted); }
+  .chip {
+    padding: 6px 12px; border-radius: 999px; border: 1px solid var(--border);
+    background: var(--panel); color: var(--muted); cursor: pointer; font-size: 13px;
+  }
+  .chip.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .catalog-grid {
+    padding: 16px 20px; overflow-y: auto; display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 14px;
+  }
+  .card {
+    border: 1px solid var(--border); border-radius: 12px; overflow: hidden;
+    cursor: pointer; background: var(--bg); display: flex; flex-direction: column;
+    transition: border-color .12s, transform .12s;
+  }
+  .card:hover { border-color: var(--accent); transform: translateY(-2px); }
+  .card.sel { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(79,70,229,.25); }
+  .card .thumb {
+    height: 130px; display: flex; align-items: center; justify-content: center;
+    background: var(--panel); overflow: hidden;
+  }
+  .card .thumb img { width: 100%; height: 100%; object-fit: cover; }
+  .card .thumb .stub {
+    color: var(--muted); font-size: 34px; display: flex; align-items: center; justify-content: center; width: 100%; height: 100%;
+  }
+  .card .cap { padding: 10px 12px; }
+  .card .cap b { font-size: 14px; display: block; }
+  .card .cap .sub { font-size: 12px; color: var(--muted); margin-top: 3px; line-height: 1.4; }
+  .card .cap .tags { font-size: 11px; color: var(--muted); margin-top: 6px; display: flex; gap: 6px; flex-wrap: wrap; }
+  .card .cap .tag { background: var(--border); border-radius: 6px; padding: 2px 6px; }
+  .empty-hint { padding: 30px; text-align: center; color: var(--muted); }
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">Виртуальное ателье</div>
+  <div class="sub">AI-конструирование одежды</div>
+  <div class="spacer"></div>
+  <button id="catalogBtn" title="Открыть каталог изделий">👗 Изделия</button>
+  <button id="togglePanel" title="Открыть панель мерок">📏 Мерки</button>
+  <span class="panel-badge">Роль:</span>
+  <select id="role">
+    <option value="text">Текст</option>
+    <option value="vision">Vision (зрение)</option>
+  </select>
+</header>
+<div class="workspace">
+  <main id="chat"></main>
+  <aside id="panel">
+    <div id="panelBody">
+      <div>
+        <h3>Мерки</h3>
+        <p class="phint">Выберите изделие в каталоге (👗) — покажутся только нужные ему мерки. Линии на схеме показывают, где и как мерить.</p>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:8px">
+        <div id="selGarment" style="flex:1;font-weight:600;font-size:14px">Изделие не выбрано</div>
+        <button id="changeGarment" style="background:var(--panel);color:var(--muted);border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:13px;cursor:pointer">Сменить</button>
+      </div>
+
+      <div class="seg" id="tabSeg">
+        <button data-tab="basic" class="on">Основные</button>
+        <button data-tab="all">Все мерки</button>
+      </div>
+
+      <div class="schema-wrap" id="schemaWrap"><svg id="schema" viewBox="0 0 220 380"></svg></div>
+      <div class="legend" id="legend"></div>
+      <div class="measure-list" id="measureList"></div>
+      <p class="mnote">Заполните нужные мерки. Оставшиеся будут рассчитаны автоматически из базовых (ОГ/ОТ/ОБ/рост) или стандартного размера.</p>
+      <button id="buildBtn">Построить лекало</button>
+      <div class="export-row">
+        <select id="exportFmt" title="Формат файла">
+          <option value="png">PNG (картинка)</option>
+          <option value="svg">SVG (вектор)</option>
+          <option value="pdf">PDF</option>
+          <option value="dxf">DXF (для раскроя)</option>
+          <option value="val">.val (лекало Seamly2D)</option>
+        </select>
+        <button id="exportBtn">⬇ Скачать</button>
+      </div>
+      <p class="build-hint" id="exportHint">Не заполнено: будет взят стандартный размер.</p>
+    </div>
+  </aside>
+</div>
+<footer>
+  <button id="attach" title="Прикрепить изображение (для vision)">📎</button>
+  <textarea id="input" placeholder="Например: построй базовый лиф. Мерки: рост 165, ОГ (обхват груди) 90, ОТ (обхват талии) 70, ОБ (обхват бёдер) 96"></textarea>
+  <button id="send">Отправить</button>
+</footer>
+<input type="file" id="file" accept="image/*" style="display:none">
+<div id="loading" class="panel-badge" style="text-align:center;padding:6px">Генерация...</div>
+
+<!-- Каталог изделий -->
+<div class="modal-backdrop" id="catalogModal">
+  <div class="modal">
+    <div class="modal-head">
+      <h2>Каталог изделий</h2>
+      <button id="closeCatalog">Закрыть</button>
+    </div>
+    <div class="filters" id="filters"></div>
+    <div class="catalog-grid" id="catalogGrid"></div>
+  </div>
+</div>
+
+<script>
+const chat = document.getElementById('chat');
+const input = document.getElementById('input');
+const roleSel = document.getElementById('role');
+const panel = document.getElementById('panel');
+const schema = document.getElementById('schema');
+const legend = document.getElementById('legend');
+const measureList = document.getElementById('measureList');
+let attachedImage = null;
+let state = { garment: null, tab: 'basic' };
+let catState = { category: null, gender: null };
+
+const COLORS = ['#e11d48', '#0ea5e9', '#16a34a', '#9333ea', '#f59e0b', '#14b8a6', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4'];
+
+/* Фигура человека (женский силуэт, линия-арт = схематичный кроки).
+   viewBox 0 0 220 380, центр тела x=110. Цветной пунктир поверх — линии мерок. */
+const FIGURE = `
+  <g fill="none" stroke="#98a2b3" stroke-width="1.8" stroke-linecap="round">
+    <circle cx="110" cy="40" r="17"/>
+    <line x1="110" y1="57" x2="110" y2="69"/>
+    <path d="M84,84 C84,100 87,120 89,130 C90,142 94,156 101,163 C106,168 111,169 111,169 C114,200 108,220 98,228 C94,232 98,237 105,239"/>
+    <path d="M115,239 C122,237 126,232 122,228 C112,220 106,200 109,169 C109,169 114,168 119,163 C126,160 130,146 131,130 C133,120 136,100 136,84"/>
+    <path d="M85,90 C78,108 76,130 78,150 C79,162 82,168 86,170"/>
+    <path d="M135,90 C142,108 144,130 142,150 C141,162 138,168 134,170"/>
+    <path d="M104,239 C102,268 100,300 100,330 L100,350 M100,350 L92,350"/>
+    <path d="M116,239 C118,268 120,300 120,330 L120,350 M120,350 L128,350"/>
+  </g>`;
+
+/* Русские подписи мерок + позиция на схеме (если есть).
+   Ключи соответствуют required_measurements шаблонов из API. */
+const META = {
+  height:                  { label: 'Рост',                                     dir: 'v', x: 48,   y1: 26, y2: 352 },
+  bust_circ:               { label: 'ОГ — обхват груди',                        dir: 'h', y: 132 },
+  lowbust_circ:            { label: 'Обхват под грудью',                        dir: 'h', y: 154 },
+  bust_arc_b:              { label: 'Полуобхват груди (спинка)',                dir: 'h', y: 132, x1: 78, x2: 120 },
+  bustpoint_to_bustpoint:  { label: 'Расстояние между точками груди',           dir: 'h', y: 133, x1: 82, x2: 128 },
+  across_chest_f:          { label: 'Ширина груди (перед)',                     dir: 'h', y: 122, x1: 76, x2: 118 },
+  across_back_b:           { label: 'Ширина спины',                             dir: 'h', y: 118, x1: 72, x2: 118 },
+  neck_width:              { label: 'Ширина шеи',                               dir: 'h', y: 64,  x1: 82, x2: 90 },
+  neck_circ:               { label: 'Обхват шеи',                               dir: 'h', y: 68,  x1: 72, x2: 96 },
+  shoulder_length:         { label: 'Длина плеча',                              dir: 'h', y: 90,  x1: 92, x2: 120 },
+  armscye_length:          { label: 'Длина проймы',                             dir: 'v', y1: 88, y2: 122, x: 132 },
+  armpit_to_waist_side:    { label: 'Длина от проймы до талии (бок)',           dir: 'v', y1: 120, y2: 164, x: 134 },
+  waist_circ:              { label: 'ОТ — обхват талии',                        dir: 'h', y: 164 },
+  waist_arc_b:             { label: 'Полуобхват талии (спинка)',                dir: 'h', y: 164, x1: 82, x2: 118 },
+  waist_to_hip_b:          { label: 'Длина талия–бёдра (сзади)',                dir: 'v', y1: 164, y2: 224, x: 160 },
+  hip_circ:                { label: 'ОБ — обхват бёдер',                        dir: 'h', y: 226 },
+  hip_arc_b:               { label: 'Полуобхват бёдер (спинка)',                dir: 'h', y: 226, x1: 80, x2: 122 },
+  highhip_circ:            { label: 'Обхват высоких бёдер',                     dir: 'h', y: 208 },
+  neck_back_to_waist_b:    { label: 'Длина спины до талии',                     dir: 'v', y1: 72, y2: 164, x: 158 },
+  across_back_to_waist_b:  { label: 'Ширина спины до талии',                    dir: 'v', y1: 118, y2: 164, x: 76 },
+  bust_to_waist_b:         { label: 'Длина грудь–талия (спинка)',               dir: 'v', y1: 132, y2: 164, x: 152 },
+  neck_front_to_bust_f:    { label: 'Длина шея–грудь (перед)',                  dir: 'v', y1: 68, y2: 128, x: 100 },
+  bustpoint_to_shoulder_center: { label: 'Точка груди → центр плеча',           dir: 'h', y: 96,  x1: 105, x2: 118 },
+  bustpoint_to_shoulder_tip:    { label: 'Точка груди → конец плеча',           dir: 'h', y: 88,  x1: 105, x2: 124 },
+  bustpoint_to_waist_front:     { label: 'Точка груди → талия (перед)',         dir: 'v', y1: 130, y2: 166, x: 118 },
+  height_waist_front:      { label: 'Высота талии (спереди)',                   dir: 'v', y1: 160, y2: 350, x: 140 },
+  height_hip:              { label: 'Высота бёдер',                             dir: 'v', y1: 225, y2: 350, x: 146 },
+  height_knee:             { label: 'Высота колена',                            dir: 'h', y: 268 },
+  height_ankle:            { label: 'Высота лодыжки',                           dir: 'h', y: 328 },
+  leg_crotch_to_floor:     { label: 'Внутр. длина ноги до пола',                dir: 'v', y1: 190, y2: 350, x: 150 },
+};
+
+const GARMENT_NAMES = { skirt: 'юбку', bodice: 'лиф', trousers: 'брюки' };
+
+/* Каталог изделий, загруженный с сервера */
+let catalog = { categories: [], genders: [], templates: [] };
+let templatesData = {};
+let currentMeasureKeys = [];
+
+async function loadTemplates() {
+  try {
+    const resp = await fetch('/api/patterns/templates');
+    const data = await resp.json();
+    catalog = data;
+    templatesData = {};
+    data.templates.forEach(t => { templatesData[t.key] = t.measurements_needed; });
+    if (state.garment && templatesData[state.garment]) {
+      render();
+    } else {
+      state.garment = data.templates[0] ? data.templates[0].key : null;
+      render();
+    }
+  } catch (e) {
+    addError('Не удалось загрузить шаблоны мерок: ' + e.message);
+  }
+}
+
+function garmentInfo(key) {
+  return catalog.templates.find(t => t.key === key) || null;
+}
+
+function genderLabel(g) {
+  return { female: 'женский', male: 'мужской', unisex: 'унисекс' }[g] || g;
+}
+
+function schemaPositionFor(key) {
+  return META[key] || null;
+}
+
+function render() {
+  const info = garmentInfo(state.garment);
+  document.getElementById('selGarment').textContent = info
+    ? `${info.name} · ${genderLabel(info.gender)}`
+    : 'Изделие не выбрано';
+
+  const templateKeys = (templatesData[state.garment] || []);
+  // Основные = те, что есть в META (имеют понятную позицию/подпись)
+  let keys = templateKeys;
+  if (state.tab === 'basic') {
+    keys = templateKeys.filter(k => META[k] &&
+      ['bust_circ','waist_circ','hip_circ'].includes(k));
+    if (keys.length === 0) keys = templateKeys.filter(k => META[k]);
+  }
+
+  /* --- фигура + линии мерок --- */
+  const drawn = keys.filter(k => schemaPositionFor(k));
+  let inner = FIGURE;
+  drawn.forEach((k, i) => {
+    const m = schemaPositionFor(k);
+    const c = COLORS[i % COLORS.length];
+    inner += `<g stroke="${c}" stroke-width="1.6" stroke-dasharray="5 3" fill="none">`;
+    if (m.dir === 'h') {
+      const x1 = m.x1 != null ? m.x1 : 72;
+      const x2 = m.x2 != null ? m.x2 : 138;
+      inner += `<line x1="${x1}" y1="${m.y}" x2="${x2}" y2="${m.y}"/>`;
+      inner += `<text x="${x2 + 3}" y="${m.y + 4}" font-size="9" fill="${c}" stroke="none">${m.label.split('—')[0].trim()}</text>`;
+    } else {
+      inner += `<line x1="${m.x}" y1="${m.y1}" x2="${m.x}" y2="${m.y2}"/>`;
+      inner += `<text x="${m.x + 3}" y="${(m.y1 + m.y2) / 2 + 3}" font-size="9" fill="${c}" stroke="none">${m.label.split('—')[0].trim()}</text>`;
+    }
+    inner += `</g>`;
+  });
+  schema.innerHTML = inner;
+
+  legend.innerHTML = drawn.map((k, i) =>
+    `<span class="lg"><span class="dot" style="background:${COLORS[i % COLORS.length]}"></span>${META[k].label}</span>`
+  ).join('');
+
+  /* --- поля ввода --- */
+  currentMeasureKeys = keys;
+  measureList.innerHTML = '';
+  keys.forEach((k, i) => {
+    const m = META[k];
+    const label = m ? m.label : k;
+    const c = COLORS[i % COLORS.length];
+    const row = document.createElement('div');
+    row.className = 'mrow';
+    row.innerHTML = `<span class="color" style="background:${c}"></span>` +
+      `<label>${label}</label>` +
+      `<input type="number" step="0.5" min="0" placeholder="см" data-key="${k}">`;
+    measureList.appendChild(row);
+  });
+}
+
+document.getElementById('tabSeg').addEventListener('click', (e) => {
+  const b = e.target.closest('button'); if (!b) return;
+  state.tab = b.dataset.tab;
+  document.querySelectorAll('#tabSeg button').forEach(x => x.classList.toggle('on', x === b));
+  render();
+});
+
+/* === Каталог изделий === */
+const catalogBtn = document.getElementById('catalogBtn');
+const catalogModal = document.getElementById('catalogModal');
+const catalogGrid = document.getElementById('catalogGrid');
+const filters = document.getElementById('filters');
+
+function openCatalog() {
+  renderFilters();
+  renderCatalog();
+  catalogModal.classList.add('open');
+}
+function closeCatalog() {
+  catalogModal.classList.remove('open');
+}
+
+function renderFilters() {
+  const choices = [['Все', null]];
+  const parts = [];
+  parts.push(`<div class="grp"><span class="grp-label">Вид:</span>`);
+  parts.push(`<button class="chip${catState.category ? '' : ' on'}" data-f="category" data-v="">Все</button>`);
+  catalog.categories.forEach(c => {
+    parts.push(`<button class="chip${catState.category === c ? ' on' : ''}" data-f="category" data-v="${c}">${c}</button>`);
+  });
+  parts.push(`</div><div class="grp" style="margin-left:8px"><span class="grp-label">Пол:</span>`);
+  parts.push(`<button class="chip${catState.gender ? '' : ' on'}" data-f="gender" data-v="">Все</button>`);
+  catalog.genders.forEach(g => {
+    parts.push(`<button class="chip${catState.gender === g ? ' on' : ''}" data-f="gender" data-v="${g}">${genderLabel(g)}</button>`);
+  });
+  parts.push(`</div>`);
+  filters.innerHTML = parts.join('');
+}
+
+function renderCatalog() {
+  let items = catalog.templates;
+  if (catState.category) items = items.filter(t => t.category === catState.category);
+  if (catState.gender) items = items.filter(t => t.gender === catState.gender);
+
+  if (items.length === 0) {
+    catalogGrid.innerHTML = `<div class="empty-hint">Ничего не найдено по выбранным фильтрам.</div>`;
+    return;
+  }
+  catalogGrid.innerHTML = items.map(t => {
+    const thumb = t.image
+      ? `<img src="${t.image}" alt="${t.name}" loading="lazy">`
+      : `<div class="stub">🧵</div>`;
+    const sel = state.garment === t.key ? ' sel' : '';
+    return `<div class="card${sel}" data-key="${t.key}">
+        <div class="thumb">${thumb}</div>
+        <div class="cap">
+          <b>${t.name}</b>
+          <div class="sub">${t.description}</div>
+          <div class="tags"><span class="tag">${t.category}</span><span class="tag">${genderLabel(t.gender)}</span></div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+filters.addEventListener('click', (e) => {
+  const b = e.target.closest('.chip'); if (!b) return;
+  const f = b.dataset.f, v = b.dataset.v;
+  if (f === 'category') catState.category = v || null;
+  if (f === 'gender') catState.gender = v || null;
+  renderFilters();
+  renderCatalog();
+});
+
+catalogGrid.addEventListener('click', (e) => {
+  const card = e.target.closest('.card'); if (!card) return;
+  state.garment = card.dataset.key;
+  closeCatalog();
+  render();
+});
+
+catalogBtn.addEventListener('click', openCatalog);
+document.getElementById('closeCatalog').addEventListener('click', closeCatalog);
+catalogModal.addEventListener('click', (e) => {
+  if (e.target === catalogModal) closeCatalog();
+});
+document.getElementById('changeGarment').addEventListener('click', openCatalog);
+
+document.getElementById('togglePanel').addEventListener('click', () => {
+  const open = panel.classList.toggle('open');
+  document.getElementById('togglePanel').textContent = open ? '✕ Закрыть мерки' : '📏 Мерки';
+});
+
+/* --- Построить: собрать заполненные мерки и отправить в чат --- */
+function gatherMeasurements() {
+  const ms = [];
+  measureList.querySelectorAll('input').forEach(inp => {
+    if (inp.value !== '') ms.push({ name: inp.dataset.key, value: parseFloat(inp.value) });
+  });
+  return ms;
+}
+
+document.getElementById('buildBtn').addEventListener('click', () => {
+  if (!state.garment) { addError('Сначала выберите изделие в каталоге (👗).'); return; }
+  const parts = [];
+  measureList.querySelectorAll('input').forEach(inp => {
+    if (inp.value !== '') {
+      const m = META[inp.dataset.key];
+      parts.push(`${m ? m.label : inp.dataset.key} ${inp.value}`);
+    }
+  });
+  if (parts.length === 0) { addError('Укажите хотя бы одну мерку.'); return; }
+  const info = garmentInfo(state.garment);
+  input.value = `Построй изделие «${info ? info.name : state.garment}». Мерки: ` + parts.join(', ') + '.';
+  send();
+});
+
+/* --- Экспорт: скачать лекало в выбранном формате --- */
+const exportBtn = document.getElementById('exportBtn');
+
+exportBtn.addEventListener('click', async () => {
+  if (!state.garment) { addError('Сначала выберите изделие в каталоге (👗).'); return; }
+  const fmt = document.getElementById('exportFmt').value;
+  const ms = gatherMeasurements();
+  if (ms.length === 0) {
+    addError('Укажите хотя бы одну мерку перед скачиванием.');
+    return;
+  }
+  exportBtn.disabled = true;
+  const hint = document.getElementById('exportHint');
+  hint.textContent = 'Рендер выполняется в фоне... это может занять 30–60 секунд.';
+  try {
+    const body = JSON.stringify({ template: state.garment, measurements: ms });
+    if (fmt === 'val') {
+      const resp = await fetch('/api/patterns/download', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body
+      });
+      if (!resp.ok) {
+        const data = await resp.json().catch(() => ({}));
+        throw new Error(data.detail || 'Ошибка генерации');
+      }
+      saveBlob(await resp.blob(), `${state.garment}.val`);
+    } else {
+      const resp = await fetch(`/api/patterns/render?format=${fmt}`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body
+      });
+      if (!resp.ok) {
+        const data = await resp.json().catch(() => ({}));
+        throw new Error(data.detail || `Ошибка рендера (${resp.status})`);
+      }
+      saveBlob(await resp.blob(), `${state.garment}.${fmt === 'dxf-aama' ? 'dxf' : fmt}`);
+    }
+    hint.textContent = 'Готово!';
+  } catch (e) {
+    hint.textContent = 'Не заполнено: будет взят стандартный размер.';
+    addError('Экспорт: ' + e.message);
+  } finally {
+    exportBtn.disabled = false;
+    setTimeout(() => {
+      if (hint.textContent.includes('Готово')) hint.textContent = 'Не заполнено: будет взят стандартный размер.';
+    }, 4000);
+  }
+});
+
+function saveBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+}
+
+/* ============ исходный чат ============ */
+function addMsg(text, who, image) {
+  const el = document.createElement('div');
+  el.className = 'msg ' + who;
+  if (image) {
+    const img = document.createElement('img');
+    img.className = 'img'; img.src = image; img.alt = 'прикреплённое изображение';
+    el.appendChild(img);
+  }
+  el.appendChild(document.createTextNode(text));
+  chat.appendChild(el);
+  chat.scrollTop = chat.scrollHeight;
+  return el;
+}
+
+function addError(text) {
+  const el = document.createElement('div');
+  el.className = 'error'; el.textContent = text;
+  chat.appendChild(el);
+  chat.scrollTop = chat.scrollHeight;
+}
+
+async function send() {
+  const text = input.value.trim();
+  if (!text && !attachedImage) return;
+  const role = roleSel.value;
+
+  let imageBlock = null;
+  if (attachedImage) {
+    if (role !== 'vision') {
+      addError('Для отправки изображения выберите роль Vision');
+      return;
+    }
+    imageBlock = { type: 'image', mime: attachedImage.mime, data: attachedImage.data.split(',')[1] };
+  }
+
+  addMsg(text || '📎 изображение', 'user', attachedImage ? attachedImage.data : null);
+  input.value = '';
+  attachedImage = null;
+  document.getElementById('attach').classList.remove('has-image');
+  document.getElementById('attach').textContent = '📎';
+  document.getElementById('loading').style.display = 'block';
+
+  try {
+    const resp = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt: text, image: imageBlock, role: role })
+    });
+    const data = await resp.json();
+    document.getElementById('loading').style.display = 'none';
+    if (!resp.ok) throw new Error(data.detail || 'Ошибка сервера');
+    addMsg(data.reply, 'ai');
+  } catch (e) {
+    document.getElementById('loading').style.display = 'none';
+    addError('Ошибка: ' + e.message);
+  }
+}
+
+document.getElementById('send').addEventListener('click', send);
+document.getElementById('file').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    attachedImage = { mime: file.type, data: ev.target.result };
+    document.getElementById('attach').classList.add('has-image');
+    document.getElementById('attach').textContent = '✅';
+    roleSel.value = 'vision';
+  };
+  reader.readAsDataURL(file);
+});
+document.getElementById('attach').addEventListener('click', () => document.getElementById('file').click());
+
+input.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
+});
+
+addMsg('Здравствуйте! Я — виртуальное ателье, помогу создать лекало. '
+  + 'Нажмите «👗 Изделия» справа сверху: выберите изделие из каталога (с фильтрами по виду и полу), '
+  + 'затем в панели «📏 Мерки» впишите мерки — схема покажет, где что мерить.', 'ai');
+
+loadTemplates();
+</script>
+</body>
+</html>

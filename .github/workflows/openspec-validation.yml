@@ -1,0 +1,23 @@
+name: OpenSpec Validation
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+
+jobs:
+  validate:
+    name: Validate OpenSpec
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate OpenSpec structure
+        run: |
+          echo "Validating OpenSpec structure..."
+          test -f openspec/project.md && echo "project.md OK"
+          test -f openspec/AGENTS.md && echo "AGENTS.md OK"
+          test -d openspec/specs && echo "specs dir OK"
+          test -d openspec/changes && echo "changes dir OK"
+          find openspec/specs -name spec.md | while read f; do echo "Found spec: $f"; done

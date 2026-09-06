@@ -1,0 +1,19 @@
+# Разведочный образ: распаковать локальный AppImage Seamly2D и изучить зависимости бинаря.
+# ВРЕМЕННЫЙ — используется, чтобы подобрать runtime-пакеты для финального Dockerfile.
+FROM debian:bookworm-slim
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        xvfb libglib2.0-0 libgl1 libegl1 \
+        libfontconfig1 libglu1-mesa libxcb1 libxkbcommon0 libx11-6 libsm6 \
+        libice6 poppler-utils binutils \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /opt/seamly
+COPY Seamly2D-x86_64.AppImage /opt/seamly/
+RUN chmod +x Seamly2D-x86_64.AppImage \
+    && ./Seamly2D-x86_64.AppImage --appimage-extract >/dev/null 2>&1; \
+    echo "=== extracted tree (top) ===" && ls -la squashfs-root 2>/dev/null | head -40; \
+    echo "=== usr/bin ===" && ls -la squashfs-root/usr/bin 2>/dev/null | head -40; \
+    echo "=== ldd seamly2d ===" && (ldd squashfs-root/usr/bin/seamly2d 2>&1 || echo NO_BINARY)
+
+CMD ["bash"]

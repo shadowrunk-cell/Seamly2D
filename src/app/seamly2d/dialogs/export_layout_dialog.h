@@ -33,6 +33,8 @@
 //  @copyright
 //  This source code is part of the Seamly2D project, a pattern making
 //  program to create and model patterns of clothing.
+//  This fork (SeamlyAI) of Seamly2D adds AI-assisted features and
+//  improved 3D integration (CLO 3D, Blender).
 //  Copyright (C) 2017-2026 Seamly2D project
 //  <https://github.com/fashionfreedom/seamly2d> All Rights Reserved.
 //

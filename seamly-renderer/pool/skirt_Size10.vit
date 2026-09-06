@@ -1,0 +1,43 @@
+<?xml version='1.0' encoding='utf-8'?>
+<vit>
+    <version>0.3.3</version>
+    <read-only>false</read-only>
+    <unit>cm</unit>
+    <pm_system>998</pm_system>
+    <personal>
+        <family-name />
+        <given-name />
+        <birth-date>1990-01-01</birth-date>
+        <gender>female</gender>
+        <email />
+    </personal>
+    <body-measurements>
+        <m name="across_back_b" value="34" />
+        <m name="across_back_to_waist_b" value="22" />
+        <m name="across_chest_f" value="31" />
+        <m name="armpit_to_waist_side" value="15" />
+        <m name="armscye_length" value="38.7" />
+        <m name="bust_arc_b" value="43" />
+        <m name="bust_circ" value="86" />
+        <m name="bust_to_waist_b" value="5.58" />
+        <m name="bustpoint_to_bustpoint" value="19" />
+        <m name="bustpoint_to_shoulder_center" value="18" />
+        <m name="bustpoint_to_shoulder_tip" value="20" />
+        <m name="bustpoint_to_waist_front" value="20" />
+        <m name="highhip_arc_b" value="44.16" />
+        <m name="highhip_arc_f" value="44.16" />
+        <m name="highhip_circ" value="88.32" />
+        <m name="hip_arc_b" value="46" />
+        <m name="hip_arc_f" value="46" />
+        <m name="hip_circ" value="92" />
+        <m name="lowbust_circ" value="74" />
+        <m name="neck_back_to_waist_b" value="39.5" />
+        <m name="neck_circ" value="36" />
+        <m name="neck_front_to_bust_f" value="25" />
+        <m name="neck_width" value="12.5" />
+        <m name="shoulder_length" value="12.5" />
+        <m name="waist_arc_b" value="34" />
+        <m name="waist_circ" value="68" />
+        <m name="waist_to_hip_b" value="20.5" />
+    </body-measurements>
+</vit>
