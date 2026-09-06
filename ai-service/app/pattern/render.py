@@ -23,9 +23,20 @@ from .templates import get_template
 RENDERER_IMAGE = "seamly-renderer:latest"
 _CONVERT_HOST_ROOT = Path(__file__).resolve().parent.parent.parent.parent / "seamly-renderer"
 
+# Поддерживаемые форматы вывода Seamly2D (для render_one.sh).
+FORMATS: dict[str, dict[str, str]] = {
+    "png": {"num": "3", "ext": "png", "media": "image/png"},
+    "svg": {"num": "0", "ext": "svg", "media": "image/svg+xml"},
+    "pdf": {"num": "1", "ext": "pdf", "media": "application/pdf"},
+    "pdf-tiled": {"num": "2", "ext": "pdf", "media": "application/pdf"},
+    "jpg": {"num": "4", "ext": "jpg", "media": "image/jpeg"},
+    "dxf": {"num": "17", "ext": "dxf", "media": "application/dxf"},
+    "dxf-aama": {"num": "19", "ext": "dxf", "media": "application/dxf"},
+}
+
 
 class RenderError(RuntimeError):
-    """Ошибка рендера (непустой RC / нет PNG)."""
+    """Ошибка рендера (непустой RC / нет файла результата)."""
 
 
 class RenderUnavailable(RenderError):
@@ -34,8 +45,9 @@ class RenderUnavailable(RenderError):
 
 @dataclass
 class RenderResult:
-    png_path: Path
+    file_path: Path
     log: str
+    format: str = "png"
 
 
 def _docker_available() -> bool:
@@ -57,12 +69,19 @@ def render_pattern(
     size: str | None = None,
     adjustments: dict[str, float] | None = None,
     out_dir: Path | None = None,
+    format: str = "png",
 ) -> RenderResult:
-    """Конвертирует шаблон, генерирует мерки и рендерит PNG через контейнер."""
+    """Конвертирует шаблон, генерирует мерки и рендерит лекало через контейнер.
+
+    `format` — ключ из FORMATS (png/svg/pdf/pdf-tiled/jpg/dxf/dxf-aama).
+    """
+    if format not in FORMATS:
+        raise RenderError(f"Неизвестный формат: {format}. Доступны: {', '.join(FORMATS)}")
     tmpl = get_template(template_key)
     if not _docker_available():
         raise RenderUnavailable("Docker недоступен — установите Docker Desktop")
 
+    fmt = FORMATS[format]
     tag = f"{template_key}_{(size or 'custom').replace(' ', '')}"
     job_dir = Path(tempfile.mkdtemp(prefix=f"seamly_{tag}_", dir=_CONVERT_HOST_ROOT))
     out_base = out_dir or (job_dir.parent / f"{tag}_out")
@@ -89,14 +108,15 @@ def render_pattern(
             f"/job/{val_path.name}",
             f"/job/{vit_path.name}",
             tag,
+            format,
         ]
         proc = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
         log = (proc.stdout + "\n" + proc.stderr).strip()
-        pngs = list(out_base.rglob("*.png"))
-        if not pngs:
+        files = list(out_base.rglob(f"*.{fmt['ext']}"))
+        if not files:
             detail = "You can't export empty scene" if "empty scene" in log else log
-            raise RenderError(f"Рендер не дал PNG (rc={proc.returncode}): {detail}")
-        return RenderResult(png_path=pngs[0], log=log)
+            raise RenderError(f"Рендер не дал файл (rc={proc.returncode}): {detail}")
+        return RenderResult(file_path=files[0], log=log, format=format)
     finally:
         shutil.rmtree(job_dir, ignore_errors=True)
 

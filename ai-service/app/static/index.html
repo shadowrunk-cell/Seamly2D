@@ -106,6 +106,19 @@
     padding: 11px; font-size: 14px; cursor: pointer; width: 100%;
   }
 
+  .export-row { display: flex; gap: 8px; align-items: stretch; }
+  .export-row select {
+    flex: 1; padding: 8px 10px; border: 1px solid var(--border); border-radius: 10px;
+    background: var(--bg); color: var(--text); font-size: 13px; font-family: inherit;
+  }
+  #exportBtn {
+    background: var(--panel); color: var(--text); border: 1px solid var(--border);
+    border-radius: 10px; padding: 8px 14px; font-size: 13px; cursor: pointer;
+  }
+  #exportBtn:disabled { opacity: .5; cursor: not-allowed; }
+  .build-hint { font-size: 11px; color: var(--muted); margin: 0; }
+  .saving { color: var(--muted); font-size: 12px; text-align: center; padding: 4px; }
+
   /* === Каталог изделий === */
   .modal-backdrop {
     position: fixed; inset: 0; background: rgba(0,0,0,.45);
@@ -197,6 +210,17 @@
       <div class="measure-list" id="measureList"></div>
       <p class="mnote">Заполните нужные мерки. Оставшиеся будут рассчитаны автоматически из базовых (ОГ/ОТ/ОБ/рост) или стандартного размера.</p>
       <button id="buildBtn">Построить лекало</button>
+      <div class="export-row">
+        <select id="exportFmt" title="Формат файла">
+          <option value="png">PNG (картинка)</option>
+          <option value="svg">SVG (вектор)</option>
+          <option value="pdf">PDF</option>
+          <option value="dxf">DXF (для раскроя)</option>
+          <option value="val">.val (лекало Seamly2D)</option>
+        </select>
+        <button id="exportBtn">⬇ Скачать</button>
+      </div>
+      <p class="build-hint" id="exportHint">Не заполнено: будет взят стандартный размер.</p>
     </div>
   </aside>
 </div>
@@ -468,6 +492,14 @@ document.getElementById('togglePanel').addEventListener('click', () => {
 });
 
 /* --- Построить: собрать заполненные мерки и отправить в чат --- */
+function gatherMeasurements() {
+  const ms = [];
+  measureList.querySelectorAll('input').forEach(inp => {
+    if (inp.value !== '') ms.push({ name: inp.dataset.key, value: parseFloat(inp.value) });
+  });
+  return ms;
+}
+
 document.getElementById('buildBtn').addEventListener('click', () => {
   if (!state.garment) { addError('Сначала выберите изделие в каталоге (👗).'); return; }
   const parts = [];
@@ -482,6 +514,63 @@ document.getElementById('buildBtn').addEventListener('click', () => {
   input.value = `Построй изделие «${info ? info.name : state.garment}». Мерки: ` + parts.join(', ') + '.';
   send();
 });
+
+/* --- Экспорт: скачать лекало в выбранном формате --- */
+const exportBtn = document.getElementById('exportBtn');
+
+exportBtn.addEventListener('click', async () => {
+  if (!state.garment) { addError('Сначала выберите изделие в каталоге (👗).'); return; }
+  const fmt = document.getElementById('exportFmt').value;
+  const ms = gatherMeasurements();
+  if (ms.length === 0) {
+    addError('Укажите хотя бы одну мерку перед скачиванием.');
+    return;
+  }
+  exportBtn.disabled = true;
+  const hint = document.getElementById('exportHint');
+  hint.textContent = 'Рендер выполняется в фоне... это может занять 30–60 секунд.';
+  try {
+    const body = JSON.stringify({ template: state.garment, measurements: ms });
+    if (fmt === 'val') {
+      const resp = await fetch('/api/patterns/download', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body
+      });
+      if (!resp.ok) {
+        const data = await resp.json().catch(() => ({}));
+        throw new Error(data.detail || 'Ошибка генерации');
+      }
+      saveBlob(await resp.blob(), `${state.garment}.val`);
+    } else {
+      const resp = await fetch(`/api/patterns/render?format=${fmt}`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body
+      });
+      if (!resp.ok) {
+        const data = await resp.json().catch(() => ({}));
+        throw new Error(data.detail || `Ошибка рендера (${resp.status})`);
+      }
+      saveBlob(await resp.blob(), `${state.garment}.${fmt === 'dxf-aama' ? 'dxf' : fmt}`);
+    }
+    hint.textContent = 'Готово!';
+  } catch (e) {
+    hint.textContent = 'Не заполнено: будет взят стандартный размер.';
+    addError('Экспорт: ' + e.message);
+  } finally {
+    exportBtn.disabled = false;
+    setTimeout(() => {
+      if (hint.textContent.includes('Готово')) hint.textContent = 'Не заполнено: будет взят стандартный размер.';
+    }, 4000);
+  }
+});
+
+function saveBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+}
 
 /* ============ исходный чат ============ */
 function addMsg(text, who, image) {

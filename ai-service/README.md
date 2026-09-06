@@ -54,13 +54,17 @@ uvicorn app.main:app --reload
 | GET  | `/api/patterns/templates` | Доступные шаблоны и нужные мерки |
 | POST | `/api/patterns` | Генерация лекала по шаблону и меркам |
 | POST | `/api/patterns/download` | Генерация и отдача `.val` как файла |
-| POST | `/api/patterns/render` | Рендер лекала в PNG через headless Seamly2D (требует Docker) |
+| POST | `/api/patterns/render?format=...` | Рендер лекала (png/svg/pdf/pdf-tiled/jpg/dxf/dxf-aama) |
+| POST | `/api/patterns/jobs?format=...` | Асинхронная генерация/рендер: возвращает `job_id` |
+| GET  | `/api/patterns/jobs/{job_id}` | Статус задачи (pending/started/success/failure) + `download_url` |
+| GET  | `/api/patterns/jobs/{job_id}/result` | Скачать готовый результат задачи |
 | POST | `/api/chat` | Чат с LLM (текст + опц. картинка) |
 
-## Рендер в PNG (требует Docker)
+## Рендер в файлы (требует Docker)
 
 `POST /api/patterns/render` генерирует `.val` (modern 0.6.8) и `.vit` из запроса,
-запускает headless-рендер в контейнере `seamly-renderer:latest` и возвращает PNG.
+запускает headless-рендер в контейнере `seamly-renderer:latest` и возвращает файл
+(PNG по умолчанию; `?format=svg|pdf|pdf-tiled|jpg|dxf|dxf-aama` — формат вывода).
 
 Собрать образ рендера:
 ```bash
@@ -69,7 +73,36 @@ docker build -t seamly-renderer:latest ai-service/seamly-renderer
 
 Ошибки:
 - `503 RenderUnavailable` — нет Docker/демона;
-- `422 RenderError` — контейнер не дал PNG (например, «empty scene» — в шаблоне нет деталей).
+- `422 RenderError` — контейнер не дал файл (например, «empty scene» — пустой шаблон).
+
+## Асинхронная генерация (Celery + Redis)
+
+Тяжёлые задачи (генерация + рендер) уходят в очередь, API не блокируется:
+
+```bash
+# 1. Redis (docker)
+docker run -d --name seamly-redis -p 6379:6379 redis:7-alpine
+# 2. Воркер
+celery -A app.tasks.celery_app worker --loglevel=info
+```
+
+```bash
+# постановка задачи
+curl -X POST http://localhost:8000/api/patterns/jobs \
+  -H 'Content-Type: application/json' \
+  -d '{"template":"skirt","measurements":[{"name":"waist_circ","value":70}]}'
+# -> {"job_id":"...", "status":"pending"}
+
+# статус
+curl http://localhost:8000/api/patterns/jobs/<job_id>
+# -> {... "status":"success", "download_url":"http://.../result"}
+
+# скачивание
+curl -o skirt.png http://localhost:8000/api/patterns/jobs/<job_id>/result
+```
+
+Если Redis недоступен — задачи выполняются локальными потоками (dev-режим),
+API-контракт тот же. Транзиентные сбои рендера автоматически ретраятся с backoff.
 
 ## Структура
 

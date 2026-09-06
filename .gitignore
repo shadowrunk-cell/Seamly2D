@@ -191,6 +191,8 @@ ai-service/__pycache__/
 
 # Output of headless renders (PNG/SVG/DXF) from seamly-renderer
 seamly-renderer/render_out/
+seamly-renderer/async_out/
+seamly-renderer/fmt_test/
 
 # Seamly2D AppImage (download separately before building the render image)
 ai-service/seamly-renderer/*.AppImage

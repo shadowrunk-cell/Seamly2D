@@ -45,12 +45,19 @@ class TemplateInfo:
         return TEMPLATES_DIR / self.filename
 
 
-# Базовый набор мерок корсетов/лифов Mandy Barrington (женский).
-_CORSET_MEASUREMENTS = [
-    "bust_circ", "waist_circ", "hip_circ",
+# Реально используемые мерки корсетов/лифов Mandy Barrington (без hip_circ —
+# он есть только в corset_1875/corset_1890/bodice_mb).
+_CORSET_MEASUREMENTS_BASE = [
+    "bust_circ", "waist_circ",
     "bustpoint_to_bustpoint", "across_back_b", "across_chest_f",
     "neck_back_to_waist_b", "neck_circ", "waist_to_hip_b",
 ]
+# Корсеты с привязкой длины к росту (Mandy Barrington использует #height).
+_CORSET_MEASUREMENTS_HEIGHT = _CORSET_MEASUREMENTS_BASE + ["height"]
+# Корсеты, в которых задействован обхват бёдер.
+_CORSET_MEASUREMENTS_HIP = _CORSET_MEASUREMENTS_HEIGHT + ["hip_circ"]
+# Лиф Mandy Barrington: рост не используется, но hip_circ нужен.
+_BODICE_MB_MEASUREMENTS = _CORSET_MEASUREMENTS_BASE + ["hip_circ"]
 
 TEMPLATES: dict[str, TemplateInfo] = {
     "bodice": TemplateInfo(
@@ -67,9 +74,11 @@ TEMPLATES: dict[str, TemplateInfo] = {
             "across_chest_f", "bustpoint_to_waist_front", "neck_front_to_bust_f",
             "bustpoint_to_shoulder_center", "bustpoint_to_shoulder_tip",
             "neck_width", "armscye_length", "armpit_to_waist_side",
-            "waist_arc_b", "bust_arc_b", "across_back_b", "bust_to_waist_b",
+            "waist_arc_b", "bust_arc_b",
+            "across_back_b", "bust_to_waist_b",
             "neck_back_to_waist_b", "across_back_to_waist_b", "shoulder_length",
-            "hip_circ", "hip_arc_b", "highhip_circ", "highhip_arc_b",
+            "hip_circ", "hip_arc_b", "highhip_circ",
+            "highhip_arc_b", "height",
         ],
         base_measurements=["bust_circ", "waist_circ", "hip_circ"],
     ),
@@ -82,7 +91,7 @@ TEMPLATES: dict[str, TemplateInfo] = {
         category="лифы",
         gender="female",
         image="/img/bodice_mb.png",
-        required_measurements=_CORSET_MEASUREMENTS,
+        required_measurements=_BODICE_MB_MEASUREMENTS,
         base_measurements=["bust_circ", "waist_circ"],
     ),
     "skirt": TemplateInfo(
@@ -94,7 +103,7 @@ TEMPLATES: dict[str, TemplateInfo] = {
         category="юбки",
         gender="female",
         image="/img/skirt.png",
-        required_measurements=["waist_circ", "hip_circ", "waist_to_hip_b"],
+        required_measurements=["waist_circ", "hip_circ", "waist_to_hip_b", "height"],
         base_measurements=["waist_circ", "hip_circ"],
     ),
     "trousers": TemplateInfo(
@@ -108,7 +117,7 @@ TEMPLATES: dict[str, TemplateInfo] = {
         image="/img/trousers.png",
         required_measurements=[
             "height_waist_front", "height_hip", "height_knee", "height_ankle",
-            "leg_crotch_to_floor", "waist_circ", "hip_circ",
+            "leg_crotch_to_floor", "waist_circ", "hip_circ", "height",
         ],
         base_measurements=["waist_circ", "hip_circ", "height_waist_front"],
     ),
@@ -121,8 +130,12 @@ TEMPLATES: dict[str, TemplateInfo] = {
         category="корсеты",
         gender="female",
         image="/img/corset_base.png",
-        required_measurements=_CORSET_MEASUREMENTS,
-        base_measurements=["bust_circ", "waist_circ"],
+        required_measurements=[
+            "bust_circ", "bustpoint_to_bustpoint",
+            "across_back_b", "across_chest_f",
+            "neck_back_to_waist_b", "neck_circ", "waist_to_hip_b",
+        ],
+        base_measurements=["bust_circ"],
     ),
     "corset_1598": TemplateInfo(
         key="corset_1598",
@@ -133,7 +146,7 @@ TEMPLATES: dict[str, TemplateInfo] = {
         category="корсеты",
         gender="female",
         image="/img/corset_1598.png",
-        required_measurements=_CORSET_MEASUREMENTS,
+        required_measurements=_CORSET_MEASUREMENTS_HEIGHT,
         base_measurements=["bust_circ", "waist_circ"],
     ),
     "corset_1735": TemplateInfo(
@@ -145,7 +158,7 @@ TEMPLATES: dict[str, TemplateInfo] = {
         category="корсеты",
         gender="female",
         image="/img/corset_1735.png",
-        required_measurements=_CORSET_MEASUREMENTS,
+        required_measurements=_CORSET_MEASUREMENTS_HEIGHT,
         base_measurements=["bust_circ", "waist_circ"],
     ),
     "corset_1875": TemplateInfo(
@@ -157,7 +170,7 @@ TEMPLATES: dict[str, TemplateInfo] = {
         category="корсеты",
         gender="female",
         image="/img/corset_1875.png",
-        required_measurements=_CORSET_MEASUREMENTS,
+        required_measurements=_CORSET_MEASUREMENTS_HIP,
         base_measurements=["bust_circ", "waist_circ"],
     ),
     "corset_1890": TemplateInfo(
@@ -169,7 +182,7 @@ TEMPLATES: dict[str, TemplateInfo] = {
         category="корсеты",
         gender="female",
         image="/img/corset_1890.png",
-        required_measurements=_CORSET_MEASUREMENTS,
+        required_measurements=_CORSET_MEASUREMENTS_HIP,
         base_measurements=["bust_circ", "waist_circ"],
     ),
 }

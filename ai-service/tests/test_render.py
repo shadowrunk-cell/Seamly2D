@@ -56,5 +56,47 @@ def test_render_pattern_with_mocked_docker(monkeypatch, tmp_path):
         size="Size 10",
         out_dir=tmp_path,
     )
-    assert result.png_path.exists()
-    assert result.png_path.read_bytes() == b"PNGDATA"
+    assert result.file_path.exists()
+    assert result.file_path.read_bytes() == b"PNGDATA"
+
+
+def test_render_pattern_svg_format(monkeypatch, tmp_path):
+    """Проверяет проброс формата: для 'svg' должны искаться .svg, а не .png."""
+    class _Proc:
+        returncode = 0
+        stdout = "OK"
+        stderr = ""
+
+    def _fake_run(cmd, capture_output=False, text=False, timeout=0):
+        host_out = None
+        for item in cmd:
+            if item.endswith(":/out"):
+                host_out = Path(item[: -len(":/out")])
+        assert host_out
+        assert "svg" in cmd, f"ожидали формат svg в cmd={cmd}"
+        host_out.mkdir(parents=True, exist_ok=True)
+        (host_out / "piece.svg").write_bytes(b"SVGDATA")
+        # PNG-файл не создаём — если код ищет .png, тест упадёт
+        return _Proc()
+
+    monkeypatch.setattr("app.pattern.render._docker_available", lambda: True)
+    monkeypatch.setattr("app.pattern.render.subprocess.run", _fake_run)
+    result = render_pattern(
+        template_key="skirt",
+        measurements={"waist_circ": 70, "hip_circ": 96},
+        out_dir=tmp_path,
+        format="svg",
+    )
+    assert result.format == "svg"
+    assert result.file_path.suffix == ".svg"
+    assert result.file_path.read_bytes() == b"SVGDATA"
+
+
+def test_render_pattern_unknown_format(monkeypatch):
+    monkeypatch.setattr("app.pattern.render._docker_available", lambda: True)
+    with pytest.raises(RenderError):
+        render_pattern(
+            template_key="skirt",
+            measurements={},
+            format="tiff",
+        )
